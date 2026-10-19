@@ -2,17 +2,293 @@
 
 \section{时空序列预测问题定义}
 
+时空序列预测的目标，是根据历史观测及其附带的时间戳、空间位置或拓扑信息，推断未来一段时间内多个变量或空间节点的取值。依据输入中是否显式包含空间图结构，本文将其划分为一般多元时间序列预测和基于图的时空交通预测两类问题，并分别给出统一记号。
+
+在一般多元时间序列预测中，设系统包含 $N$ 个同步观测的变量，每个变量在每一时刻给出 $C$ 维观测值。记第 $t$ 个时间步的观测为
+\begin{equation}
+\mathbf{x}_t = \left[\mathbf{x}_{t}^{1}, \mathbf{x}_{t}^{2}, \ldots, \mathbf{x}_{t}^{N}\right]^{\top} \in \mathbb{R}^{N \times C},
+\end{equation}
+其中 $\mathbf{x}_{t}^{n} \in \mathbb{R}^{C}$ 表示第 $n$ 个变量在 $t$ 时刻的观测向量。给定历史长度为 $T$ 的观测窗口
+\begin{equation}
+\mathbf{X}_{1:T} = \left[\mathbf{x}_{1}, \mathbf{x}_{2}, \ldots, \mathbf{x}_{T}\right] \in \mathbb{R}^{N \times T \times C},
+\end{equation}
+以及对应的历史时间戳矩阵 $\mathbf{T}_{1:T} \in \mathbb{R}^{T \times d_{\tau}}$ 和未来时间戳矩阵 $\mathbf{T}_{T+1:T+H} \in \mathbb{R}^{H \times d_{\tau}}$，其中 $H$ 为预测步长，$d_{\tau}$ 为时间戳特征的维度。记未来真实观测为 $\mathbf{X}_{T+1:T+H} \in \mathbb{R}^{N \times H \times C}$，预测模型需要学习映射
+\begin{equation}
+f_{\theta}: \left(\mathbf{X}_{1:T}, \mathbf{T}_{1:T}, \mathbf{T}_{T+1:T+H}\right) \mapsto \hat{\mathbf{X}}_{T+1:T+H} \in \mathbb{R}^{N \times H \times C}.
+\end{equation}
+当仅需预测部分变量或部分特征时，可以令输出维度作相应缩减，而不改变问题的一般形式。实际训练时通常采用滑动窗口构造样本：从完整序列中连续截取长度为 $T+H$ 的片段，将前 $T$ 个时间步作为模型输入，后 $H$ 个时间步作为监督目标。为了消除不同变量之间的量纲和尺度差异，输入通常先按变量进行标准化。设第 $n$ 个变量历史序列的均值和标准差分别为 $\mu^{n}$ 和 $\sigma^{n}$，则标准化与逆标准化可写为
+\begin{equation}
+\tilde{x}_{t}^{n,c} = \frac{x_{t}^{n,c} - \mu^{n}}{\sigma^{n} + \epsilon}, \qquad
+x_{t}^{n,c} = \left(\sigma^{n} + \epsilon\right) \hat{x}_{t}^{n,c} + \mu^{n},
+\end{equation}
+其中 $\epsilon$ 为避免除零的小常数。对于单步或多步回归预测，常用的平均绝对误差和均方误差分别为
+\begin{equation}
+\mathcal{L}_{\mathrm{MAE}} = \frac{1}{NHC} \sum_{n=1}^{N} \sum_{h=1}^{H} \sum_{c=1}^{C}
+\left| \hat{x}_{T+h}^{n,c} - x_{T+h}^{n,c} \right|,
+\end{equation}
+\begin{equation}
+\mathcal{L}_{\mathrm{MSE}} = \frac{1}{NHC} \sum_{n=1}^{N} \sum_{h=1}^{H} \sum_{c=1}^{C}
+\left( \hat{x}_{T+h}^{n,c} - x_{T+h}^{n,c} \right)^{2}.
+\end{equation}
+一般多元时间序列预测的核心难点在于：不同变量的观测分布存在差异，序列统计特性随时间发生漂移，且同一序列中往往同时包含趋势、周期和局部波动等多尺度模式。
+
+在基于图的时空交通预测中，交通路网被建模为图 $\mathcal{G}=(\mathcal{V}, \mathcal{E}, \mathbf{A})$，其中 $\mathcal{V}$ 为节点集合且 $\left|\mathcal{V}\right| = N$，$\mathcal{E}$ 为边集合，$\mathbf{A} \in \mathbb{R}^{N \times N}$ 为描述节点之间空间连接强度的邻接矩阵。第 $t$ 个时间步的交通观测记为 $\mathbf{X}_{t} \in \mathbb{R}^{N \times C}$。给定历史窗口
+\begin{equation}
+\mathcal{X}_{t-T+1:t} = \left[\mathbf{X}_{t-T+1}, \mathbf{X}_{t-T+2}, \ldots, \mathbf{X}_{t}\right],
+\end{equation}
+以及未来真实观测 $\mathcal{Y}_{t+1:t+H}$，预测模型需要根据历史观测和路网图 $\mathcal{G}$ 学习映射
+\begin{equation}
+f_{\theta}: \left(\mathcal{X}_{t-T+1:t}, \mathcal{G}\right) \mapsto \hat{\mathbf{Y}}_{t+1:t+H} \in \mathbb{R}^{N \times H \times C}.
+\end{equation}
+交通预测的监督目标同样可以定义为逐节点的 MAE 或 MSE：
+\begin{equation}
+\mathcal{L}_{\mathrm{traffic}} = \frac{1}{NH} \sum_{n=1}^{N} \sum_{h=1}^{H}
+\left\| \hat{\mathbf{Y}}_{t+h}^{n} - \mathbf{Y}_{t+h}^{n} \right\|_{2}^{2}.
+\end{equation}
+为区分不同来源的空间依赖，本文用 $\mathbf{A}^{\mathrm{s}}$ 表示由路网拓扑预先给定或可学习的静态邻接矩阵，用 $\mathbf{A}^{\mathrm{d}}_{t}$ 表示随时间变化的动态邻接矩阵。交通时空预测的难点在于：节点之间存在由道路连接决定的静态结构，也存在由交通状态演化产生的动态交互；同时，交通数据在不同空间尺度上可能呈现不同的分布和依赖模式。
+
+上述两类问题共享若干基础概念。设 $\mathcal{P}_s(\cdot)$ 为第 $s$ 个尺度上的时间或空间变换，$\mathbf{X}^{(s)}$ 为对应的尺度表示。对时间序列，$s$ 通常对应不同的下采样粒度或周期长度；对空间图，$s$ 通常对应不同的节点分组粒度或图粗化层级。本文后续章节所提出的模型均围绕如何在多尺度表示上自适应地提取特征，以及如何利用混合专家机制处理不同变量、节点或时间状态之间的分布差异展开。
+
 \section{基于深度学习的多元时间序列预测方法}
+
 \subsection{循环神经网络与卷积神经网络}
+
+循环神经网络（Recurrent Neural Network，RNN）通过递归方式逐步编码时序信息，其基本形式为
+\begin{equation}
+\mathbf{h}_t = \phi_h\!\left(\mathbf{W}_{xh} \mathbf{x}_t + \mathbf{W}_{hh} \mathbf{h}_{t-1} + \mathbf{b}_h\right),
+\end{equation}
+其中 $\mathbf{h}_t$ 为 $t$ 时刻的隐状态，$\mathbf{W}_{xh}$ 和 $\mathbf{W}_{hh}$ 为可学习权重，$\mathbf{b}_h$ 为偏置，$\phi_h(\cdot)$ 为非线性激活函数。长短期记忆（Long Short-Term Memory，LSTM）网络通过输入门、遗忘门、输出门和细胞状态控制信息流动。给定当前输入 $\mathbf{x}_t$ 和上一时刻隐状态 $\mathbf{h}_{t-1}$，LSTM 的门控更新为
+\begin{equation}
+\mathbf{i}_t = \sigma\!\left(\mathbf{W}_{xi} \mathbf{x}_t + \mathbf{W}_{hi} \mathbf{h}_{t-1} + \mathbf{b}_i\right),
+\quad
+\mathbf{f}_t = \sigma\!\left(\mathbf{W}_{xf} \mathbf{x}_t + \mathbf{W}_{hf} \mathbf{h}_{t-1} + \mathbf{b}_f\right),
+\end{equation}
+\begin{equation}
+\mathbf{o}_t = \sigma\!\left(\mathbf{W}_{xo} \mathbf{x}_t + \mathbf{W}_{ho} \mathbf{h}_{t-1} + \mathbf{b}_o\right),
+\quad
+\tilde{\mathbf{c}}_t = \tanh\!\left(\mathbf{W}_{xc} \mathbf{x}_t + \mathbf{W}_{hc} \mathbf{h}_{t-1} + \mathbf{b}_c\right),
+\end{equation}
+\begin{equation}
+\mathbf{c}_t = \mathbf{f}_t \odot \mathbf{c}_{t-1} + \mathbf{i}_t \odot \tilde{\mathbf{c}}_t,
+\qquad
+\mathbf{h}_t = \mathbf{o}_t \odot \tanh\!\left(\mathbf{c}_t\right),
+\end{equation}
+其中 $\odot$ 表示逐元素乘法。门控循环单元（Gated Recurrent Unit，GRU）通过更新门和重置门实现类似的信息选择机制：
+\begin{equation}
+\mathbf{z}_t = \sigma\!\left(\mathbf{W}_{xz} \mathbf{x}_t + \mathbf{W}_{hz} \mathbf{h}_{t-1} + \mathbf{b}_z\right),
+\quad
+\mathbf{r}_t = \sigma\!\left(\mathbf{W}_{xr} \mathbf{x}_t + \mathbf{W}_{hr} \mathbf{h}_{t-1} + \mathbf{b}_r\right),
+\end{equation}
+\begin{equation}
+\tilde{\mathbf{h}}_t = \tanh\!\left(\mathbf{W}_{xh} \mathbf{x}_t + \mathbf{r}_t \odot \left(\mathbf{W}_{hh} \mathbf{h}_{t-1}\right) + \mathbf{b}_h\right),
+\end{equation}
+\begin{equation}
+\mathbf{h}_t = \left(1 - \mathbf{z}_t\right) \odot \mathbf{h}_{t-1} + \mathbf{z}_t \odot \tilde{\mathbf{h}}_t.
+\end{equation}
+与普通 RNN 相比，LSTM 和 GRU 通过门控机制缓解了长序列训练中的梯度消失与梯度爆炸问题，使模型能够更稳定地捕捉长程时间依赖~\cite{deepar,mixrnn+}。
+
+在预测方式上，基于循环网络的方法既可以使用递归解码逐步生成未来序列，也可以通过一次全连接投影输出整个预测窗口。以 DeepAR~\cite{deepar} 为代表的方法将循环网络与概率预测结合，假设未来观测服从给定分布，并输出分布参数而非单一确定性取值。例如，对于高斯输出，模型在第 $t$ 时刻输出均值 $\mu_t$ 和标准差 $\sigma_t$，训练目标为负对数似然
+\begin{equation}
+\mathcal{L}_{\mathrm{NLL}} = -\frac{1}{NH} \sum_{n=1}^{N} \sum_{h=1}^{H}
+\log p\!\left(x_{T+h}^{n} \mid \mu_{T+h}^{n}, \sigma_{T+h}^{n}\right),
+\end{equation}
+从而能够同时刻画点预测和预测不确定性。AdaRNN~\cite{adarnn} 则从时间分布漂移的角度出发，将历史序列划分为不同时期，通过时间分布匹配和自适应学习提高模型在非平稳场景下的泛化能力。
+
+卷积神经网络（Convolutional Neural Network，CNN）通过局部感受野和权重共享提取序列中的局部时序模式。一维因果卷积可表示为
+\begin{equation}
+\mathbf{z}_t = \sum_{k=0}^{K-1} \mathbf{W}_k \mathbf{x}_{t-d k},
+\end{equation}
+其中 $K$ 为卷积核长度，$d$ 为膨胀因子，$\mathbf{W}_k$ 为第 $k$ 个卷积核权重。通过增大膨胀因子，模型能够在较少层数下获得较大的有效感受野，并保持因果结构。时序卷积网络（Temporal Convolutional Network，TCN）通常将膨胀因果卷积、非线性激活和残差连接组合为基本模块：
+\begin{equation}
+\mathbf{z}^{(l+1)} = \mathbf{x}^{(l)} + \sigma\!\left(\mathbf{W}_{2}^{(l)} \sigma\!\left(\mathbf{W}_{1}^{(l)} \mathbf{x}^{(l)} + \mathbf{b}_{1}^{(l)}\right) + \mathbf{b}_{2}^{(l)}\right),
+\end{equation}
+其中 $\mathbf{x}^{(l)}$ 为第 $l$ 层输入，残差连接有利于深层网络训练。与 RNN 相比，卷积结构具有训练高效、易于并行化的优点，因此在多元时间序列预测中被广泛使用~\cite{micn,cnn_related1}。MICN~\cite{micn} 将多尺度局部卷积与全局上下文建模相结合，用于长序列预测；TimesNet~\cite{timesnet} 则把一维时序通过多周期变换转换为二维张量，再使用二维卷积同时建模周期内变化和周期间变化。
+
+真实时序数据往往存在分布漂移和非平稳性。RevIN~\cite{revin} 提出可逆实例归一化，先在输入层移除实例均值和方差，再在输出层恢复统计量，从而缓解训练与测试分布不一致的问题；Dish-TS~\cite{dishts} 对序列分布进行显式调整；Non-stationary Transformers~\cite{ns-trans} 通过去平稳化注意力将非平稳信息重新注入模型。上述方法从归一化和分布适配的角度增强了深度模型对非平稳时间序列的鲁棒性。
+
 \subsection{基于 Transformer 的时序建模}
-\subsection{频域分析与多尺度时序建模}
+
+Transformer~\cite{attention} 以自注意力机制替代循环和卷积，通过全局交互捕捉任意两个时间步或令牌之间的依赖关系。给定查询 $\mathbf{Q}$、键 $\mathbf{K}$ 和值 $\mathbf{V}$，缩放点积注意力定义为
+\begin{equation}
+\mathrm{Attention}\!\left(\mathbf{Q}, \mathbf{K}, \mathbf{V}\right)
+=\mathrm{softmax}\!\left(\frac{\mathbf{Q} \mathbf{K}^{\top}}{\sqrt{d_k}}\right) \mathbf{V},
+\end{equation}
+其中 $d_k$ 为键向量的维度。为从不同子空间提取信息，多头注意力将查询、键和值分别投影到 $N_{\mathrm{h}}$ 个头上，再拼接各头的输出：
+\begin{equation}
+\mathrm{MHA}\!\left(\mathbf{Q}, \mathbf{K}, \mathbf{V}\right)
+=\left[\mathrm{head}_1, \mathrm{head}_2, \ldots, \mathrm{head}_{N_{\mathrm{h}}}\right] \mathbf{W}^{O},
+\end{equation}
+\begin{equation}
+\mathrm{head}_i
+=\mathrm{Attention}\!\left(\mathbf{Q} \mathbf{W}_i^{Q}, \mathbf{K} \mathbf{W}_i^{K}, \mathbf{V} \mathbf{W}_i^{V}\right),
+\end{equation}
+其中 $\mathbf{W}_i^{Q}, \mathbf{W}_i^{K}, \mathbf{W}_i^{V}$ 为第 $i$ 个头的投影矩阵，$\mathbf{W}^{O}$ 为输出投影矩阵。由于自注意力本身对令牌顺序不敏感，Transformer 通常将位置编码或时间戳嵌入与输入特征相加后进入注意力层。正弦位置编码可写为
+\begin{equation}
+\mathrm{PE}_{(p, 2i)} = \sin\!\left(\frac{p}{10000^{2i/d_m}}\right),
+\quad
+\mathrm{PE}_{(p, 2i+1)} = \cos\!\left(\frac{p}{10000^{2i/d_m}}\right),
+\end{equation}
+其中 $p$ 为位置索引，$i$ 为维度索引，$d_m$ 为模型隐层维度。编码器中的每个 Transformer 块通常由多头注意力、残差连接、层归一化和前馈网络组成：
+\begin{equation}
+\mathbf{h}' = \mathrm{LayerNorm}\!\left(\mathbf{x} + \mathrm{MHA}\!\left(\mathbf{x}\right)\right),
+\end{equation}
+\begin{equation}
+\mathbf{h}'' = \mathrm{LayerNorm}\!\left(\mathbf{h}' + \mathrm{FFN}\!\left(\mathbf{h}'\right)\right),
+\end{equation}
+\begin{equation}
+\mathrm{FFN}\!\left(\mathbf{h}\right) = \mathbf{W}_{2} \sigma\!\left(\mathbf{W}_{1} \mathbf{h} + \mathbf{b}_{1}\right) + \mathbf{b}_{2}.
+\end{equation}
+标准自注意力的时间和空间复杂度均为 $O(L^{2} d_m)$，其中 $L$ 为序列长度。当预测步长较大时，长序列带来的计算开销和内存占用成为 Transformer 应用于时序预测的主要瓶颈。
+
+针对长序列预测的计算复杂度和长程依赖建模问题，Informer~\cite{informer} 通过稀疏注意力降低复杂度，并利用生成式解码器一次性输出未来多个时间步；Autoformer~\cite{autoformer} 引入序列分解和自相关机制，显式建模趋势项与周期项。Autoformer 的序列分解可近似表示为
+\begin{equation}
+\mathbf{X}_{\mathrm{trend}} = \mathrm{AvgPool}\!\left(\mathrm{Padding}\!\left(\mathbf{X}\right)\right),
+\qquad
+\mathbf{X}_{\mathrm{season}} = \mathbf{X} - \mathbf{X}_{\mathrm{trend}},
+\end{equation}
+其中趋势项通过移动平均获得，季节项通过原始序列减去趋势项得到。PatchTST~\cite{patchtst} 将时间序列切分为若干时间块，以时间块作为令牌建模局部语义，降低了自注意力所处理的令牌数量；Crossformer~\cite{crossformer} 在时间和变量两个维度上分别建立注意力，以捕捉跨维依赖；iTransformer~\cite{itransformer} 则反转注意力方向，将变量作为令牌，更适合建模变量之间的相关关系。与此同时，DLinear~\cite{dlinear} 等简单线性模型表明，在部分预测基准上，简洁结构同样具有竞争力，提示模型设计应重视任务特有的归纳偏置。
+
+时间戳是时序预测中重要的先验信息。部分方法将历史时间戳编码为位置嵌入或辅助特征~\cite{timesnet,itransformer}；GLAFF~\cite{glaff} 利用自注意力分别建模历史和未来时间戳，并生成全局信息与局部信息的融合权重；TimeSter~\cite{timester} 系统分析了时间相关特征对预测性能的影响。尽管已有方法开始显式利用时间戳，但现有工作大多分别处理历史时间戳和未来时间戳，较少显式建模两者之间的双向交叉依赖，这也是本文第3章关注的问题之一。
+
+\subsection{多尺度时序建模}
+
+时间序列中的趋势、周期和局部波动通常对应不同时间尺度。多尺度建模的基本思路是利用下采样、分块或分解得到不同粒度的序列表示，再分别提取尺度特异性特征并进行融合。设 $\mathcal{P}_s(\cdot)$ 为第 $s$ 个尺度上的变换，则该尺度表示可写为
+\begin{equation}
+\mathbf{X}^{(s)} = \mathcal{P}_s\!\left(\mathbf{X}_{1:T}\right).
+\end{equation}
+典型的时间尺度变换包括间隔为 $s$ 的下采样、长度为 $s$ 的窗口平均以及按周期长度进行的分块。不同尺度上的特征提取可分别由参数独立的编码器完成：
+\begin{equation}
+\mathbf{H}^{(s)} = \mathrm{Encoder}_s\!\left(\mathbf{X}^{(s)}\right),
+\end{equation}
+最终预测结果通过对各尺度表示进行上采样和融合得到：
+\begin{equation}
+\hat{\mathbf{X}} = \mathrm{Fuse}\!\left(\mathrm{Upsample}_1\!\left(\mathbf{H}^{(1)}\right), \ldots, \mathrm{Upsample}_S\!\left(\mathbf{H}^{(S)}\right)\right),
+\end{equation}
+其中 $S$ 为尺度数量，$\mathrm{Upsample}_s(\cdot)$ 将第 $s$ 个尺度表示恢复到原始时间分辨率。
+
+Pyraformer~\cite{pyraformer} 通过金字塔注意力在不同时间尺度上建模长程依赖，将长序列建模复杂度从平方级降低到近线性级；SCINet~\cite{scinet} 通过二分下采样树对序列进行层次化分解和交互。设输入序列在某一尺度上按奇偶位置拆分为 $\mathbf{x}_{\mathrm{odd}}$ 和 $\mathbf{x}_{\mathrm{even}}$，SCINet 的交互操作可写为
+\begin{equation}
+\mathbf{x}_{\mathrm{odd}}' = \mathbf{x}_{\mathrm{odd}} + \phi_{o}\!\left(\mathbf{x}_{\mathrm{even}}\right),
+\quad
+\mathbf{x}_{\mathrm{even}}' = \mathbf{x}_{\mathrm{even}} + \phi_{e}\!\left(\mathbf{x}_{\mathrm{odd}}\right),
+\end{equation}
+其中 $\phi_o(\cdot)$ 和 $\phi_e(\cdot)$ 为可学习卷积模块，输出通过逆拆分恢复原分辨率。TimeMixer~\cite{timemixer} 在多个尺度上分别分解趋势项和季节项，并通过尺度间混合增强表示；Pathformer~\cite{pathformer} 根据序列特性自适应选择不同长度的分块路径；PDF~\cite{pdf} 从周期解耦的角度建模长时预测中的多周期结构。
+
+频域方法从另一角度刻画尺度信息。离散傅里叶变换可将时序信号映射到频域，从而显式提取周期性成分：
+\begin{equation}
+\mathcal{F}(\mathbf{x})_k = \sum_{t=0}^{T-1} \mathbf{x}_t \, e^{-\mathrm{i}\, 2\pi k t / T},
+\end{equation}
+其逆变换为
+\begin{equation}
+\mathbf{x}_t = \frac{1}{T} \sum_{k=0}^{T-1} \mathcal{F}(\mathbf{x})_k \, e^{\mathrm{i}\, 2\pi k t / T},
+\end{equation}
+其中 $\mathrm{i}$ 为虚数单位。低频分量通常对应趋势和长周期模式，高频分量通常对应噪声和局部波动。FITS~\cite{fits} 利用低通滤波保留主要频域分量，再通过逆傅里叶变换恢复时域预测，在极少量参数下实现高效预测；FreTS~\cite{frets} 使用频域多层感知机直接在复数频域中提取周期模式；FilterNet~\cite{filternet} 通过可学习频率滤波器直接对时域信号进行滤波。频域建模的优势在于能够以较低计算成本捕捉长周期依赖，但现有时间多尺度方法通常对不同通道共享尺度划分和参数，难以充分表达不同变量之间的时间分布差异。
 
 \section{交通流预测中的图神经网络方法}
+
 \subsection{图卷积网络与时空图建模}
-\subsection{静态图与动态图学习}
+
+交通传感器或路段之间具有天然的图结构，图神经网络能够在保留空间拓扑信息的前提下聚合邻居节点特征。对无向图，归一化拉普拉斯矩阵定义为
+\begin{equation}
+\mathbf{L} = \mathbf{I}_N - \mathbf{D}^{-\frac{1}{2}} \mathbf{A} \mathbf{D}^{-\frac{1}{2}},
+\end{equation}
+其中 $\mathbf{D}$ 为度矩阵，$\mathbf{I}_N$ 为 $N$ 阶单位矩阵。谱域图卷积通常利用切比雪夫多项式近似卷积核。令 $\tilde{\mathbf{L}} = 2\mathbf{L}/\lambda_{\max} - \mathbf{I}_N$，其中 $\lambda_{\max}$ 为拉普拉斯矩阵的最大特征值，则切比雪夫图卷积为
+\begin{equation}
+\mathbf{Z} = \sum_{k=0}^{K-1} \theta_k T_k\!\left(\tilde{\mathbf{L}}\right) \mathbf{X},
+\end{equation}
+其中 $\theta_k$ 为可学习系数，$T_k(\cdot)$ 为第 $k$ 阶切比雪夫多项式，递归关系为 $T_0(\tilde{\mathbf{L}})=\mathbf{I}_N$，$T_1(\tilde{\mathbf{L}})=\tilde{\mathbf{L}}$，$T_k(\tilde{\mathbf{L}})=2\tilde{\mathbf{L}}T_{k-1}(\tilde{\mathbf{L}})-T_{k-2}(\tilde{\mathbf{L}})$。图卷积网络通常进一步利用一阶近似并加入自环，得到广泛使用的消息聚合形式。令 $\tilde{\mathbf{A}} = \mathbf{A} + \mathbf{I}_N$，$\tilde{\mathbf{D}}_{ii} = \sum_{j} \tilde{\mathbf{A}}_{ij}$，单层图卷积可写为
+\begin{equation}
+\mathbf{Z} = \sigma\!\left(\tilde{\mathbf{D}}^{-\frac{1}{2}} \tilde{\mathbf{A}} \tilde{\mathbf{D}}^{-\frac{1}{2}} \mathbf{X} \mathbf{W}\right),
+\end{equation}
+其中 $\mathbf{X}$ 为节点特征矩阵，$\mathbf{W}$ 为可学习权重，$\sigma(\cdot)$ 为激活函数。该形式可以理解为先对邻域特征进行归一化加权平均，再通过线性变换和非线性激活得到新的节点表示。
+
+STGCN~\cite{stgcn} 将图卷积与一维时序卷积交替堆叠，系统地把时空图建模引入交通预测。其时空卷积块可概括为
+\begin{equation}
+\mathbf{H} = \Gamma_{\star \tau}\!\left(\mathrm{ReLU}\!\left(g_{\theta} \star_{\mathcal{G}} \mathbf{X}\right)\right),
+\end{equation}
+其中 $g_{\theta} \star_{\mathcal{G}} \cdot$ 表示图卷积，$\Gamma_{\star \tau}(\cdot)$ 表示时间维卷积。DCRNN~\cite{dcrnn} 将交通信息传播视为图上的扩散过程，通过扩散卷积同时考虑前向和后向传播：
+\begin{equation}
+\mathbf{Z}
+=\sum_{k=0}^{K-1} \left(\mathbf{D}_{O}^{-1} \mathbf{A}\right)^{k} \mathbf{X} \mathbf{W}_{k,O}
++\sum_{k=0}^{K-1} \left(\mathbf{D}_{I}^{-1} \mathbf{A}^{\top}\right)^{k} \mathbf{X} \mathbf{W}_{k,I},
+\end{equation}
+其中 $\mathbf{D}_{O}$ 和 $\mathbf{D}_{I}$ 分别为出度矩阵和入度矩阵。DCRNN 在编码器—解码器结构中采用 GRU 对时间依赖建模，并通过序列到序列训练逐步输出未来多步预测。Graph WaveNet~\cite{gwnet} 进一步提出自适应邻接矩阵，利用节点嵌入学习隐式空间关系：
+\begin{equation}
+\mathbf{A}_{\mathrm{adp}} = \mathrm{softmax}\!\left(\mathrm{ReLU}\!\left(\mathbf{U}_1 \mathbf{U}_2^{\top}\right)\right),
+\end{equation}
+其中 $\mathbf{U}_1$ 和 $\mathbf{U}_2$ 为可学习节点嵌入。Graph WaveNet 的时间卷积采用门控机制：
+\begin{equation}
+\mathbf{Z} = \tanh\!\left(\mathbf{W}_{f} \star \mathbf{X} + \mathbf{b}_{f}\right) \odot \sigma\!\left(\mathbf{W}_{g} \star \mathbf{X} + \mathbf{b}_{g}\right),
+\end{equation}
+通过两个并行卷积分别产生特征项和门控项，从而增强时间维的非线性表达能力。
+
+ASTGCN~\cite{astgcn} 在时空卷积中引入注意力机制，对不同时间片和空间节点的依赖强度进行加权，其空间注意力可以写为
+\begin{equation}
+\mathbf{S} = \mathbf{V}_s \sigma\!\left(\left(\mathbf{X} \mathbf{W}_{1}\right) \mathbf{W}_{2} \left(\mathbf{W}_{3} \mathbf{X}\right)^{\top} + \mathbf{b}_s\right),
+\end{equation}
+再对注意力矩阵进行归一化，得到空间交互权重。MTGNN~\cite{mtgnn} 通过图结构学习自动推断变量之间的隐式连接；AGCRN~\cite{agcrn} 采用节点自适应参数学习和图生成机制，减少共享参数对不同节点模式的限制；DGCRN~\cite{dgcrn} 通过动态图构造和动态图卷积捕捉随时间变化的节点关系。STID~\cite{stid} 和 STAEformer~\cite{staeformer} 表明，合理的时空身份嵌入与自适应嵌入机制能够使简单 Transformer 在交通预测上取得较强的性能。这些工作共同说明，图卷积、时间卷积、注意力以及静态图与动态图学习的组合方式是时空交通建模的关键设计空间。
+
+\subsection{多尺度空间建模}
+
+真实路网中的交通依赖具有明显的空间尺度差异：相邻路段之间的局部拥堵传播、区域之间的宏观流量转移以及城市尺度的整体需求变化通常需要不同粒度的图结构进行刻画。层次化图建模通过节点分组和图粗化构造多尺度空间图。设原始图节点数为 $N^{(0)}=N$，第 $s$ 个尺度的节点数为 $N^{(s)}$，节点分组矩阵为 $\mathbf{S}^{(s)} \in \mathbb{R}^{N^{(s-1)} \times N^{(s)}}$，则粗化后的节点特征和邻接矩阵可表示为
+\begin{equation}
+\mathbf{X}^{(s)} = \mathbf{S}^{(s)\top} \mathbf{X}^{(s-1)},
+\qquad
+\mathbf{A}^{(s)} = \mathbf{S}^{(s)\top} \mathbf{A}^{(s-1)} \mathbf{S}^{(s)}.
+\end{equation}
+分组矩阵既可以由地理距离、谱聚类等先验知识构造，也可以通过图池化或注意力机制从数据中学习。若使用可学习的分组矩阵，则可通过对分组概率进行 softmax 归一化保证每个节点到上层节点的贡献之和为 1。为了将粗尺度特征与原始尺度特征联合使用，多尺度融合通常可写为
+\begin{equation}
+\mathbf{H} = \sum_{s=1}^{S} \alpha_s \, \mathrm{Upsample}_s\!\left(\mathbf{H}^{(s)}\right),
+\end{equation}
+其中 $\alpha_s$ 为尺度权重，可通过注意力或可学习标量获得，$\mathrm{Upsample}_s(\cdot)$ 利用 $\mathbf{S}^{(s)}$ 的转置或插值将第 $s$ 个尺度表示映射回原始节点空间。
+
+HGCN~\cite{hgcn} 基于距离邻接矩阵进行谱聚类，构造层次化空间图，并在不同尺度上分别执行时空图神经网络，以捕捉从局部道路到区域交通的不同依赖；HSTGL~\cite{hstgl} 从交通连通性和地理相关性出发学习微观图与宏观图，并通过元路径聚合融合两种语义；STPGNN~\cite{stpgnn} 通过节点特征相似度识别关键节点，并在原始图和关键节点图上联合提取特征，以降低冗余节点带来的计算和噪声影响；PyGNN~\cite{pygnn} 从图采样和图过滤的角度学习多尺度解耦表示，通过金字塔采样逐步缩小图规模；MAGNN~\cite{magnn} 则通过多尺度自适应图学习增强一般多元时间序列的空间依赖建模能力。上述方法表明，多尺度图表示有助于同时捕捉局部路网结构和区域级交通模式。然而，现有空间多尺度方法通常依赖人工先验确定尺度，且尺度数量固定，难以根据当前交通状态自适应调整并实现灵活融合。
 
 \section{混合专家系统}
+
 \subsection{稀疏门控混合专家}
+
+混合专家（Mixture-of-Experts，MoE）系统由多个专家网络和一个门控网络组成，通过将不同输入路由到不同专家中实现“分而治之”~\cite{moe,moe-survey}。设专家数量为 $M_{\mathrm{exp}}$，第 $i$ 个专家为 $f_i: \mathbb{R}^{d_x} \to \mathbb{R}^{d_y}$，门控网络为 $G: \mathbb{R}^{d_x} \to \mathbb{R}^{M_{\mathrm{exp}}}$。给定输入 $\mathbf{x} \in \mathbb{R}^{d_x}$，密集 MoE 的输出为
+\begin{equation}
+\mathbf{y} = \sum_{i=1}^{M_{\mathrm{exp}}} g_i(\mathbf{x}) f_i(\mathbf{x}),
+\end{equation}
+其中门控权重由 softmax 归一化得到：
+\begin{equation}
+\mathbf{g}(\mathbf{x}) = \mathrm{softmax}\!\left(\mathbf{W}_{g} \mathbf{x} + \mathbf{b}_g\right).
+\end{equation}
+当专家数量较大时，令所有专家参与计算会带来较高的计算开销。稀疏门控 MoE~\cite{moe} 在每个输入上只激活少数专家。设 $h_i(\mathbf{x})$ 为第 $i$ 个专家的路由得分，$\mathcal{T}_k(\mathbf{x})$ 为得分最高的 $k$ 个专家的索引集合，则 Top-$k$ 门控可写为
+\begin{equation}
+g_i(\mathbf{x})
+=
+\frac{\exp\!\left(h_i(\mathbf{x})\right) \mathbb{I}\!\left[i \in \mathcal{T}_k(\mathbf{x})\right]}
+{\sum_{j \in \mathcal{T}_k(\mathbf{x})} \exp\!\left(h_j(\mathbf{x})\right)}.
+\end{equation}
+为了在训练初期增加路由探索，Noisy Top-$k$ 门控可以在路由得分中注入噪声。设 $\epsilon$ 为服从标准正态分布的噪声，$\mathbf{W}_{n}$ 为噪声权重，则带噪声的路由得分为
+\begin{equation}
+h_i(\mathbf{x}) = \left(\mathbf{x} \mathbf{W}_{g}\right)_i + \mathrm{Softplus}\!\left(\left(\mathbf{x} \mathbf{W}_{n}\right)_i\right) \odot \epsilon_i.
+\end{equation}
+在实际实现中，Top-$k$ 选择通常作为不可微操作，反向传播时只对选中的 $k$ 个专家的路径计算梯度。
+
+为避免部分专家长期未被选中，稀疏 MoE 通常加入负载均衡损失。设一批样本中路由到第 $i$ 个专家的样本比例的经验估计为 $\rho_i$，第 $i$ 个专家的平均门控概率为 $p_i$，则负载均衡损失为
+\begin{equation}
+\mathcal{L}_{\mathrm{load}} = M_{\mathrm{exp}} \sum_{i=1}^{M_{\mathrm{exp}}} \rho_i p_i.
+\end{equation}
+总损失由任务损失和负载均衡损失共同构成：
+\begin{equation}
+\mathcal{L} = \mathcal{L}_{\mathrm{task}} + \alpha \mathcal{L}_{\mathrm{load}},
+\end{equation}
+其中 $\alpha$ 为平衡系数。稀疏激活使模型容量可以随专家数量增加而扩展，而实际计算量仅与激活的专家数量相关。在训练稳定性方面，还可以为每个专家设置容量上限，当被路由到某个专家的令牌数超过容量时，超出部分进入残差路径或继续传递给下一层，从而避免单个专家因负载过大而成为训练瓶颈。
+
 \subsection{面向时空预测的混合专家方法}
 
+时空数据中的非平稳性和分布异质性为混合专家方法提供了自然的应用场景。SMoEs~\cite{smoes} 将专家机制引入空间维度，针对空间位置差异分配不同专家，通过在卷积网络中嵌入按位置路由的专家模块提升局部差异性建模能力。在交通预测中，ST-MoE~\cite{st-moe} 通过时空混合专家进行去偏建模，以减少由数据偏差导致的预测误差；TESTAM~\cite{testam} 采用时间专家、静态图专家和动态图专家分别建模时间模式、静态路网结构和动态时空依赖。设时间专家、静态图专家和动态图专家的输出分别为 $\mathbf{H}^{\mathrm{tem}}$、$\mathbf{H}^{\mathrm{sta}}$ 和 $\mathbf{H}^{\mathrm{dyn}}$，则 TESTAM 的多专家融合可概括为
+\begin{equation}
+\hat{\mathbf{Y}} = g_{\mathrm{tem}} \mathbf{H}^{\mathrm{tem}} + g_{\mathrm{sta}} \mathbf{H}^{\mathrm{sta}} + g_{\mathrm{dyn}} \mathbf{H}^{\mathrm{dyn}},
+\end{equation}
+其中 $\left[g_{\mathrm{tem}}, g_{\mathrm{sta}}, g_{\mathrm{dyn}}\right]$ 由门控网络产生并归一化。这类方法的核心思想是：同一组共享参数难以同时适应不同的时间状态、空间位置和依赖类型，因此可以将输入按模式或依赖类型路由到专门化专家中。
+
+然而，现有时空混合专家方法仍存在不足。TESTAM 采用全激活方式，在所有专家完成计算后再进行路由，未真正实现稀疏激活；其硬专家选择策略也难以在同一时间状态下联合利用静态空间结构和动态时间演化。ST-MoE 更侧重去偏建模，对多尺度空间结构和静态、动态依赖的协同建模仍不充分。因此，如何将稀疏门控、多尺度表示和时空静动态依赖建模有效结合，是本文后续章节需要解决的关键问题。
+
 \section{本章小结}
+
+本章首先给出了一般多元时间序列预测和基于图的时空交通预测两类问题的统一定义与符号约定，并明确了时间非平稳、通道分布异质性和空间多尺度依赖等核心难点。随后回顾了 RNN、LSTM、GRU、TCN、Transformer、频域分析和多尺度时序建模等多元时间序列预测方法，给出了关键网络结构和损失函数的公式化描述，并分析了它们在长程依赖、分布漂移和尺度建模方面的进展与不足。接着介绍了谱图卷积、GCN、STGCN、DCRNN、Graph WaveNet、注意力时空图建模和多尺度空间建模等交通预测方法，指出静态图与动态图、局部依赖与全局依赖需要协同建模。最后阐述了稀疏门控混合专家的路由、负载均衡和训练机制，以及其在时空预测中的典型应用。上述内容为第3章的时间多尺度混合专家框架和第4章的空间多尺度与静动态双混合专家框架提供了统一的符号基础与理论支撑。
