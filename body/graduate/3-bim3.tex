@@ -129,6 +129,16 @@ e_{v}=\left[\sin\!\left(\frac{2\pi v}{P}\right), \cos\!\left(\frac{2\pi v}{P}\ri
 \end{equation}
 本章分别对月份、年内日、小时、分钟和星期进行编码，周期分别为 $12$、$366$、$24$、$60$ 和 $7$。历史时间戳和未来时间戳分别编码为 $\mathbf{E}^{\mathrm{hist}}$ 和 $\mathbf{E}^{\mathrm{fut}}$。
 
+时间戳编码方法的完整定义如下。对于形如 $t=[\text{年},\text{月},\text{日},\text{时},\text{分}]$ 的时间戳，首先对年份项进行线性编码，并根据数据集中的最小年份和最大年份将其归一化到 $[0,1]$：
+\begin{equation}
+t_{\mathrm{year}}=\frac{\mathrm{year}-\mathrm{min\_year}}{\mathrm{max\_year}-\mathrm{min\_year}}.
+\end{equation}
+对周期为 $T_p$ 的周期项 $x$，使用正弦和余弦函数进行编码：
+\begin{equation}
+t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\frac{2\pi x}{T_p}\right)\right].
+\end{equation}
+周期项包括月份、年内日、小时、分钟和星期，其周期分别为 $12$、$366$、$24$、$60$ 和 $7$。得到线性项和周期项的编码后，按照“年、月、日、时、分、星期”的顺序进行拼接，作为该时间戳的最终编码。
+
 为捕捉历史与未来时间戳之间的双向依赖，模块包含两个对称的交叉注意力分支，即前视层和回顾层。对第 $s$ 个尺度，前视层以历史时间戳嵌入作为查询、未来时间戳嵌入作为键和值，输出未来上下文特征；回顾层以未来时间戳嵌入作为查询、历史时间戳嵌入作为键和值，输出历史上下文特征。通过这种双向交叉注意力，时间依赖先通过时间戳交互被捕获，再被融入时间序列数据中，为预测提供额外上下文。
 
 \textbf{时序特征融合。} 在得到多尺度时序特征 $\mathbf{Z}$ 和相关性掩码 $\mathbf{M}_{\mathrm{cor}}$ 后，本章使用掩码注意力解码器融合时序特征。解码器以 $\mathbf{Z}$ 作为输入序列，以 $\mathbf{M}_{\mathrm{cor}}$ 作为注意力掩码，得到融合特征 $\mathbf{Z}^{\mathrm{fused}}$。随后通过线性投影将其对齐到未来区间：
