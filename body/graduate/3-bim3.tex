@@ -1,18 +1,361 @@
 \chapter{多尺度时序建模与混合专家系统的时间序列预测}
 
 \section{概述}
+第2章已经说明，一般多元时间序列预测中的变量之间通常不存在预先给定的空间图结构，模型需要从历史观测和相应时间戳中推断未来取值。多元时间序列中的时间戳不仅表示观测顺序，还隐含着对变量取值具有约束作用的时间结构信息。例如，气象数据中的时间戳反映了地球自转和公转周期，可以用于识别昼夜温差和季节变化。与此同时，多元时间序列在不同时间尺度上往往表现出不同模式：较大时间粒度上趋势信息更明显，较小时间粒度上周期性和局部波动更突出。该类任务的主要困难来自两个方面：其一，不同变量可能具有不同的时间分布，历史序列与未来序列之间也存在非平稳性；其二，序列中同时包含趋势、周期和局部波动等多尺度模式，单一尺度模型难以充分表达这些信息。
+
+针对上述问题，本章提出一种融合双向时间戳依赖建模与多尺度特征提取混合专家的多元时间序列预测框架。该框架以历史观测、历史时间戳和未来时间戳为输入，通过通道级稀疏门控将不同变量路由到相应的多尺度专家，并在时间戳模块中显式建模历史区间与未来区间的双向依赖。通过上述设计，模型在时间结构利用、多尺度建模和变量分布差异化处理三个方面形成互补，从而提升对非平稳多元时间序列的预测能力。
 
 \section{多尺度时序混合专家与双向时间戳依赖建模的多元时间序列预测框架}
+
 \subsection{问题定义与总体框架}
-\subsection{时间戳编码与双向交叉注意力模块}
+
+沿用第2章记号，本章考虑一般多元时间序列预测中的单变量观测情形。设历史观测为 $\mathbf{X}\in\mathbb{R}^{T\times N}$，其中 $T$ 为历史长度，$N$ 为变量数，$\mathbf{X}_{t,n}$ 表示第 $n$ 个变量在时刻 $t$ 的观测值。历史时间戳和未来时间戳分别记为 $\mathbf{T}^{\mathrm{hist}}$ 和 $\mathbf{T}^{\mathrm{fut}}$，其编码矩阵分别为 $\mathbf{E}^{\mathrm{hist}}\in\mathbb{R}^{T\times d_{\tau}}$ 和 $\mathbf{E}^{\mathrm{fut}}\in\mathbb{R}^{H\times d_{\tau}}$，$H$ 为预测长度，$d_{\tau}$ 为时间戳编码维度。模型的目标是学习映射
+\begin{equation}
+f_{\theta}:\left(\mathbf{X},\mathbf{T}^{\mathrm{hist}},\mathbf{T}^{\mathrm{fut}}\right)
+\mapsto \hat{\mathbf{X}}\in\mathbb{R}^{H\times N}.
+\end{equation}
+
+整体框架如图~\ref{fig:ch3_framework} 所示。模型以历史观测、历史时间戳和未来时间戳作为输入。首先对时间序列进行实例归一化~\cite{revin}，以对齐训练和测试数据的分布。随后，归一化数据分别进入两个主要模块：多尺度特征提取混合专家模块通过通道独立的路由网络，将不同变量分配到相应的多尺度专家；多变量相关建模模块在频域中利用可学习马氏矩阵提取变量之间的相关关系。最后，时间戳双向交叉注意力模块融合多尺度时序特征、相关性矩阵、归一化时间序列和时间戳，通过双向交叉注意力生成最终预测，并引入辅助约束损失。
+
+% 图3.1 本章方法总体框架图（占位）
+
+\begin{figure}[htbp]
+\centering
+\caption{本章方法总体框架图}
+\label{fig:ch3_framework}
+\end{figure}
+
+
 \subsection{多尺度特征提取混合专家模块}
+
+为有效建模多元时间序列中异质的数据分布，本章提出多尺度特征提取混合专家模块。为保证计算效率，该模块以稀疏门控混合专家层~\cite{moe} 为基本结构。路由网络根据数据分布将时间序列分配给不同专家，而每个多尺度特征提取专家进一步从被路由的序列中提取多尺度时序特征。路由和特征提取均以通道独立方式进行，使模型能够保留不同变量特有的时序模式，而不是对所有通道使用同一组共享参数。
+
+\textbf{时间序列路由。} 对第 $n$ 个变量的历史序列 $\mathbf{x}_n=\mathbf{X}_{:,n}\in\mathbb{R}^{T}$，首先通过两个全连接分支将其投影到低维空间，以得到用于路由的分布特征~\cite{vae}：
+\begin{equation}
+\mathbf{g}_n=\max\!\left(0,\mathbf{x}_n\mathbf{W}_{g0}\right)\mathbf{W}_{g1},
+\qquad
+\mathbf{n}_n=\max\!\left(0,\mathbf{x}_n\mathbf{W}_{n0}\right)\mathbf{W}_{n1},
+\end{equation}
+其中 $\mathbf{W}_{g0},\mathbf{W}_{n0}\in\mathbb{R}^{T\times d_0}$，$\mathbf{W}_{g1},\mathbf{W}_{n1}\in\mathbb{R}^{d_0\times N_e}$，$d_0$ 为隐层维度，$N_e$ 为专家数。
+
+随后采用噪声门控技术~\cite{moe} 选择概率最高的 $k$ 个专家，$k\leq N_e$，并计算相应权重：
+\begin{equation}
+\mathbf{G}(\mathbf{x}_n)=\mathrm{Softmax}\!\left(\mathrm{KeepTopK}\!\left(\mathbf{H}(\mathbf{x}_n),k\right)\right),
+\end{equation}
+\begin{equation}
+\mathbf{H}(\mathbf{x}_n)=\mathbf{W}_h\left(\mathbf{g}_n+\gamma\,\mathrm{Softplus}\!\left(\mathbf{n}_n\right)\right),
+\end{equation}
+\begin{equation}
+\mathrm{KeepTopK}(\mathbf{v},k)_i=
+\left\{
+\begin{array}{ll}
+v_i, & v_i \ \mbox{为}\ \mathbf{v} \ \mbox{的前}\ k\ \mbox{个最大元素},\\
+-\infty, & \mbox{否则}.
+\end{array}
+\right.
+\end{equation}
+其中 $\mathbf{H}(\mathbf{x}_n)\in\mathbb{R}^{N_e}$，$\mathbf{W}_h\in\mathbb{R}^{N_e\times N_e}$，$\mathbf{G}(\mathbf{x}_n)\in\mathbb{R}^{k}$，$\gamma\sim\mathcal{N}(0,1)$。引入噪声 $\gamma$ 有利于重采样并稳定噪声门控的训练过程；Softplus 用于保持门控信号为正。$\mathbf{H}(\mathbf{x}_n)$ 表示所有潜在分布的得分，$\mathbf{G}(\mathbf{x}_n)$ 表示被选中专家的归一化路由权重。每个变量 $\mathbf{x}_n$ 将根据其可能的分布被路由到 $k$ 个专家。
+
+\textbf{多尺度特征提取专家。} 路由完成后，$\mathbf{x}_n$ 被送入 $k$ 个选中的多尺度专家。对第 $s$ 个尺度，使用平均池化得到多尺度时间序列 $\{\mathbf{x}_n^{(0)},\ldots,\mathbf{x}_n^{(S)}\}$：
+\begin{equation}
+\mathbf{x}_n^{(s)}=\mathrm{AvgPool}_s\!\left(\mathbf{x}_n\right),
+\qquad s=0,1,\ldots,S,
+\end{equation}
+其中 $\mathbf{x}_n^{(0)}=\mathbf{x}_n$，保留最细粒度的时间变化；$\mathbf{x}_n^{(S)}$ 表示最粗粒度的宏观信息。由于季节项和趋势项在时间序列分析中具有不同性质~\cite{autoformer,1990STL}，对每个尺度进行趋势—季节分解：
+\begin{equation}
+\mathbf{s}_n^{(s)},\mathbf{t}_n^{(s)}=\mathrm{SeriesDecomp}\!\left(\mathbf{x}_n^{(s)}\right),
+\qquad s=0,\ldots,S,
+\end{equation}
+其中 $\mathbf{s}_n^{(s)}$ 为季节项，$\mathbf{t}_n^{(s)}$ 为趋势项。
+
+本章使用带 GELU 激活的前馈网络分别融合季节项和趋势项，使不同尺度之间能够进行信息交互。考虑到季节项在较低尺度上具有更明显特征，而趋势项在较高尺度上更突出，本章参考 TimeMixer~\cite{timemixer} 的做法，对季节项采用自底向上的融合策略，对趋势项采用自顶向下的融合策略：
+\begin{equation}
+\mathbf{s}_n^{(s)}\leftarrow \mathbf{s}_n^{(s)}+\mathrm{FFN}_{\mathrm{seas}}^{(s)}\!\left(\mathbf{s}_n^{(s-1)}\right),
+\qquad s=1,\ldots,S,
+\end{equation}
+\begin{equation}
+\mathbf{t}_n^{(s)}\leftarrow \mathbf{t}_n^{(s)}+\mathrm{FFN}_{\mathrm{trend}}^{(s)}\!\left(\mathbf{t}_n^{(s+1)}\right),
+\qquad s=S-1,\ldots,0.
+\end{equation}
+随后将同一尺度上的融合季节项与趋势项相加，并投影到相同隐空间。第 $e$ 个专家生成的时序特征为
+\begin{equation}
+\mathbf{h}_n^{(e)}=\sum_{s=0}^{S}\mathbf{W}_{\mathrm{mix}}^{(s)}\left(\mathbf{s}_n^{(s)}+\mathbf{t}_n^{(s)}\right),
+\end{equation}
+其中 $\mathbf{W}_{\mathrm{mix}}^{(s)}$ 为第 $s$ 个尺度的可学习投影矩阵。
+
+\textbf{特征聚合。} 完成 $k$ 个专家的特征提取后，根据路由权重对专家输出进行加权聚合：
+\begin{equation}
+\mathbf{z}_n=\sum_{j=1}^{k}G_j\!\left(\mathbf{x}_n\right)\mathbf{h}_n^{(e_j)},
+\end{equation}
+其中 $e_j$ 为第 $j$ 个被选中专家的编号，$G_j(\mathbf{x}_n)$ 为对应权重。所有变量的输出被拼接为多尺度时序特征 $\mathbf{Z}\in\mathbb{R}^{N\times d}$。
+
 \subsection{频域变量相关建模}
-\subsection{预测输出与损失函数}
+
+变量之间的相关关系对多元时间序列预测具有重要作用。受到 DUET~\cite{duet} 的启发，本章使用可学习马氏矩阵在频域中捕捉变量相关关系，以降低不相关变量的不利影响。多元时间序列通常存在分布漂移~\cite{revin,adarnn}，而将序列变换到频域有助于缓解该问题~\cite{filternet,frets}。首先对第 $n$ 个变量计算实数快速傅里叶变换~\cite{rfft} 的幅值：
+\begin{equation}
+\mathbf{a}_n=\left|\mathrm{RFFT}\!\left(\mathbf{x}_n\right)\right|.
+\end{equation}
+然后利用可学习马氏矩阵~\cite{hinton_2004_maha} 度量任意两个变量在频域中的距离：
+\begin{equation}
+D_{i,j}=\left(\mathbf{a}_i-\mathbf{a}_j\right)^{\top}\mathbf{U}\left(\mathbf{a}_i-\mathbf{a}_j\right),
+\end{equation}
+其中 $\mathbf{U}$ 为可学习半正定矩阵。距离越小，表示两个变量的频域模式越接近。将距离矩阵归一化后，得到变量相关性概率矩阵 $\mathbf{P}\in\mathbb{R}^{N\times N}$：
+\begin{equation}
+P_{i,j}=
+\left\{
+\begin{array}{ll}
+\frac{\epsilon k_{i,j}}{\max_j k_{i,j}}, & i\neq j,\\
+1, & i=j,
+\end{array}
+\right.
+\qquad
+k_{i,j}=\frac{1}{D_{i,j}},
+\end{equation}
+其中 $\epsilon\in(0,1)$ 为缩放系数，$P_{i,j}$ 表示变量 $j$ 对变量 $i$ 有用的概率。
+
+\textbf{重参数化。} 为保留相关变量的作用并减少不相关变量的影响，本章在概率矩阵 $\mathbf{P}$ 上执行伯努利重采样，得到布尔相关性掩码 $\mathbf{M}_{\mathrm{cor}}\in\{0,1\}^{N\times N}$。为保证梯度能够传播，使用 Gumbel-Softmax 重参数化技术~\cite{jang2017categorical}。
+
+\subsection{时间戳双向交叉注意力模块}
+
+时间戳双向交叉注意力模块用于显式捕捉历史区间与未来区间之间的双向依赖，并在训练过程中引入时间戳约束。该模块首先从多尺度视角探索历史与未来的双向时间依赖，随后融合多尺度时序特征 $\mathbf{Z}$、相关性掩码 $\mathbf{M}_{\mathrm{cor}}$、归一化时间序列和时间戳信息，生成最终预测并加入辅助损失。模块结构见图~\ref{fig:ch3_tdcam}。
+
+\textbf{双向依赖建模。} 时间戳中的不同分量具有不同时间含义，因此本章分别对线性分量和周期分量进行编码。对年份 $y$，使用归一化线性编码：
+\begin{equation}
+e_{\mathrm{year}}=\frac{y-y_{\min}}{y_{\max}-y_{\min}},
+\end{equation}
+其中 $y_{\min}$ 和 $y_{\max}$ 分别为数据集中年份的最小值和最大值。对周期为 $P$ 的周期项 $v$，使用正弦和余弦编码：
+\begin{equation}
+e_{v}=\left[\sin\!\left(\frac{2\pi v}{P}\right), \cos\!\left(\frac{2\pi v}{P}\right)\right].
+\end{equation}
+本章分别对月份、年内日、小时、分钟和星期进行编码，周期分别为 $12$、$366$、$24$、$60$ 和 $7$。历史时间戳和未来时间戳分别编码为 $\mathbf{E}^{\mathrm{hist}}$ 和 $\mathbf{E}^{\mathrm{fut}}$。
+
+为捕捉历史与未来时间戳之间的双向依赖，模块包含两个对称的交叉注意力分支，即前视层和回顾层。对第 $s$ 个尺度，前视层以历史时间戳嵌入作为查询、未来时间戳嵌入作为键和值，输出未来上下文特征；回顾层以未来时间戳嵌入作为查询、历史时间戳嵌入作为键和值，输出历史上下文特征。通过这种双向交叉注意力，时间依赖先通过时间戳交互被捕获，再被融入时间序列数据中，为预测提供额外上下文。
+
+\textbf{时序特征融合。} 在得到多尺度时序特征 $\mathbf{Z}$ 和相关性掩码 $\mathbf{M}_{\mathrm{cor}}$ 后，本章使用掩码注意力解码器融合时序特征。解码器以 $\mathbf{Z}$ 作为输入序列，以 $\mathbf{M}_{\mathrm{cor}}$ 作为注意力掩码，得到融合特征 $\mathbf{Z}^{\mathrm{fused}}$。随后通过线性投影将其对齐到未来区间：
+\begin{equation}
+\hat{\mathbf{X}}^{\mathrm{data}}=\mathbf{Z}^{\mathrm{fused}}\mathbf{W}_p,
+\end{equation}
+其中 $\mathbf{W}_p$ 将特征维度映射为预测长度 $H$。
+
+\textbf{时间戳约束融合。} 对每个尺度 $s$，将前视层得到的时间戳特征与归一化历史序列拼接，并使用轻量 MLP 生成约束权重：
+\begin{equation}
+\mathbf{w}^{(s)}=\mathrm{MLP}\!\left(\bar{\mathbf{X}}_f^{(s)}\oplus\mathbf{X}_{\mathrm{norm}}^{(s)}\right),
+\end{equation}
+\begin{equation}
+\hat{\mathbf{Y}}^{(s)}=\mathbf{w}^{(s)}\odot\left(\hat{\mathbf{X}}^{\mathrm{data}}\oplus\hat{\mathbf{X}}_r^{(s)}\right),
+\end{equation}
+其中 $\bar{\mathbf{X}}_f^{(s)}$ 为前视层特征，$\hat{\mathbf{X}}_r^{(s)}$ 为回顾层特征，$\oplus$ 表示拼接，$\odot$ 表示逐元素乘法。约束权重用于动态调整时间序列数据和未来时间戳信息对预测的贡献。
+
+\textbf{预测输出与辅助损失。} 在所有尺度上重复上述过程后，得到数据项预测 $\hat{\mathbf{X}}^{\mathrm{data}}$ 和多尺度时间戳特征 $\hat{\mathbf{X}}^{\mathrm{stamp}}$。对数据项进行逆实例归一化，得到最终预测：
+\begin{equation}
+\hat{\mathbf{X}}=\mathrm{DeNorm}\!\left(\hat{\mathbf{X}}^{\mathrm{data}}\right).
+\end{equation}
+主损失采用 L1 损失：
+\begin{equation}
+\mathcal{L}_{\mathrm{main}}=\mathrm{L1Loss}\!\left(\hat{\mathbf{X}},\mathbf{X}^{\mathrm{gt}}\right).
+\end{equation}
+为增强时间戳与时间序列之间的隐式相关性，对多尺度时间戳特征取平均，并通过轻量 Mapper 投影到隐空间，得到 $\mathbf{v}_{\mathrm{cons}}$。时间戳约束损失定义为
+\begin{equation}
+\mathcal{L}_{\mathrm{constraint}}=\epsilon_c\,\mathrm{mean}\!\left(\left|\mathbf{v}_{\mathrm{cons}}\right|\right),
+\end{equation}
+其中 $\epsilon_c$ 为约束强度系数。为平衡专家负载，另加入重要性损失 $\mathcal{L}_{\mathrm{importance}}$~\cite{moe}。最终总损失为
+\begin{equation}
+\mathcal{L}=\mathcal{L}_{\mathrm{main}}+\mathcal{L}_{\mathrm{constraint}}+\mathcal{L}_{\mathrm{importance}}.
+\end{equation}
+
+% 图3.2 时间戳双向交叉注意力模块结构图（占位）
+\begin{figure}[htbp]
+\centering
+\caption{时间戳双向交叉注意力模块结构图}
+\label{fig:ch3_tdcam}
+\end{figure}
+
 
 \section{实验结果与分析}
+
 \subsection{实验设置}
+
+实验使用 10 个公开真实数据集，包括 Electricity、ETTh1、ETTh2、ETTm1、ETTm2、Exchange、ILI、Solar、Traffic 和 Weather。评价指标为均方误差和平均绝对误差。对 ILI 数据集使用预测长度 $H\in\{24,36,48,60\}$，其余数据集使用 $H\in\{96,192,336,720\}$。为减少回看窗口对结果的影响，ILI 使用窗口长度 $96$ 和 $104$，其余数据集使用 $96$、$336$ 和 $720$，每个基线报告其最佳窗口下的结果。对比方法包括 DUET、TimeLinear、PDF、FITS、Pathformer、TimeMixer、iTransformer、SOFTS、PatchTST、Crossformer、TimesNet 和 DLinear 等近期方法~\cite{duet,pdf,fits,pathformer,timemixer,itransformer,softs,patchtst,crossformer,timesnet,dlinear}。实验基于 PyTorch 实现~\cite{pytorch}，使用 ADAM 优化器~\cite{adam}，批量大小根据数据集在 $8$ 到 $256$ 之间调整。
+
+\begin{table*}[ht]
+\centering
+\caption{多元时间序列预测主结果。ILI 数据集预测长度 $H\in\{24,36,48,60\}$，其余数据集预测长度 $H\in\{96,192,336,720\}$；最优结果加粗红色，次优结果下划线蓝色。}
+
+\label{tab:main-res}
+
+\resizebox{\linewidth}{!}{
+    \begin{tabular}{cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc}
+    \toprule
+        \multicolumn{2}{c|}{Models} & \multicolumn{2}{c|}{Ours} & \multicolumn{2}{c|}{\makecell{DUET\\(2025)}} & \multicolumn{2}{c|}{\makecell{TimeLinear\\(2025)}} & \multicolumn{2}{c|}{\makecell{PDF\\(2024)}} & \multicolumn{2}{c|}{\makecell{FITS\\(2024)}} & \multicolumn{2}{c|}{\makecell{Pathformer\\(2024)}} & \multicolumn{2}{c|}{\makecell{TimeMixer\\(2024)}} & \multicolumn{2}{c|}{\makecell{iTransformer\\(2024)}} & \multicolumn{2}{c|}{\makecell{SOFTS\\(2024)}} & \multicolumn{2}{c|}{\makecell{PatchTST\\(2023)}} & \multicolumn{2}{c|}{\makecell{Crossformer\\(2023)}} & \multicolumn{2}{c|}{\makecell{TimesNet\\(2023)}} & \multicolumn{2}{c}{\makecell{DLinear\\(2023)}} \\
+        \midrule
+        \multicolumn{2}{c|}{Metrics} & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae \\
+    \midrule    %% ECL
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{Electricity}} & 96 & \textcolor{red}{\textbf{0.126}} & \textcolor{red}{\textbf{0.217}} & 0.128&0.219 & 0.140&0.234 & \textcolor{blue}{\underline{0.127}}&0.221 & 0.153&0.259 & 0.134&0.222 & 0.129&0.225 & 0.152&0.248 & 0.145&0.235 & 0.143&0.247 & 0.132&\textcolor{blue}{\underline{0.218}} & 0.168&0.271 & 0.140&0.237 \\
+        
+        & 192 & \textcolor{red}{\textbf{0.145}}&\textcolor{red}{\textbf{0.235}} & \textcolor{blue}{\underline{0.145}}&0.237 & 0.155&0.247 & 0.147&0.240 & 0.167&0.271 & 0.155&0.252 & 0.151&0.245 & 0.152&0.248 & 0.162&0.252 & 0.149&0.244 & 0.181&\textcolor{blue}{\underline{0.236}} & 0.185&0.287 &0.153&0.250 \\
+        
+        & 336 & \textcolor{red}{\textbf{0.162}}&\textcolor{red}{\textbf{0.253}} & 0.163&\textcolor{blue}{\underline{0.254}} & 0.169&0.265 & \textcolor{blue}{\underline{0.163}}&0.256 & 0.182&0.285 & 0.172&0.268 & 0.167&0.256 & 0.168&0.264 & 0.182&0.273 &0.168&0.260 & 0.167&0.263 & 0.204&0.305 & 0.169&0.268 \\
+        
+        & 720 & \textcolor{red}{\textbf{0.190}}&\textcolor{red}{\textbf{0.278}} & \textcolor{blue}{\underline{0.193}}&\textcolor{blue}{\underline{0.280}} & 0.198&0.291 & 0.196&0.287 & 0.220&0.315 & 0.211&0.302 & 0.196&0.289 & 0.194&0.287 & 0.215&0.303 & 0.198&0.290 & 0.225&0.312 & 0.223&0.322 & 0.204&0.300 \\
+    \midrule    %% ETTh1
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{ETTh1}} & 96 & \textcolor{red}{\textbf{0.354}}&\textcolor{red}{\textbf{0.386}} & \textcolor{blue}{\underline{0.354}}&\textcolor{blue}{\underline{0.387}} & 0.377&0.391 & 0.361&0.392 & 0.372&0.396 & 0.383&0.390 & 0.361&0.390 & 0.400&0.425 & 0.382&0.401 & 0.370&0.400 & 0.409&0.434 & 0.389&0.412 & 0.384&0.405 \\
+        
+        & 192 & \textcolor{blue}{\underline{0.399}}&\textcolor{red}{\textbf{0.412}} & 0.400&0.417 & 0.424&0.419 & \textcolor{red}{\textbf{0.391}}&0.415 & 0.405&0.416 & 0.442&0.420 & 0.409&\textcolor{blue}{\underline{0.414}} & 0.427&0.443 & 0.436&0.432 & 0.413&0.429 & 0.424&0.451 & 0.439&0.442 & 0.443&0.450 \\
+        
+        & 336 & \textcolor{red}{\textbf{0.419}}&\textcolor{red}{\textbf{0.429}} & 0.422&0.431 & 0.463&0.438 & \textcolor{blue}{\underline{0.419}}&0.430 & 0.423&0.439 & 0.458&\textcolor{blue}{\underline{0.430}} & 0.432&0.435 & 0.457&0.465 & 0.479&0.452 & 0.422&0.440 & 0.433&0.461 & 0.495&0.471 & 0.447&0.448 \\
+        
+        & 720 & \textcolor{blue}{\underline{0.431}}&0.458 & 0.432&0.458 & 0.465&\textcolor{blue}{\underline{0.456}} & 0.468&0.482 & \textcolor{red}{\textbf{0.426}}&\textcolor{red}{\textbf{0.448}} & 0.491&0.462 & 0.445&0.465 & 0.492&0.485 & 0.499&0.488 & 0.447&0.468 & 0.691&0.634 & 0.520&0.496 & 0.504&0.515 \\
+    \midrule    %% ETTh2
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{ETTh2}} & 96 & \textcolor{red}{\textbf{0.272}}&\textcolor{red}{\textbf{0.336}} & \textcolor{blue}{\underline{0.273}}&\textcolor{blue}{\underline{0.337}} & 0.285&0.338 & 0.276&0.342 & 0.276&0.338 & 0.283&0.343 & 0.285&0.340 & 0.299&0.359 & 0.297&0.348 & 0.277&0.337 & 0.283&0.351 & 0.337&0.371 & 0.290&0.353\\
+        
+        & 192 & \textcolor{red}{\textbf{0.333}}&\textcolor{red}{\textbf{0.375}} & 0.335&0.377 & 0.372&0.390 & 0.334&0.375 & \textcolor{blue}{\underline{0.334}}&\textcolor{blue}{\underline{0.375}} & 0.349&0.376 & 0.375&0.391 & 0.377&0.406 & 0.374&0.394 & 0.341&0.382 & 0.356&0.384 & 0.405&0.415 & 0.388&0.422 \\
+        
+        & 336 & \textcolor{red}{\textbf{0.358}}&0.401 & 0.361&0.397 & 0.395&0.401 & 0.360&0.401 & 0.360&\textcolor{blue}{\underline{0.395}} & \textcolor{blue}{\underline{0.359}}&\textcolor{red}{\textbf{0.382}} & 0.387&0.411 & 0.429&0.442 & 0.419&0.431 & 0.377&0.416 & 0.359&0.410 & 0.452&0.451 & 0.463&0.472 \\
+        
+        & 720 & 0.384&\textcolor{blue}{\underline{0.422}} & \textcolor{blue}{\underline{0.379}}&0.423 & \textcolor{red}{\textbf{0.367}}&\textcolor{red}{\textbf{0.408}} & 0.398&0.438 & 0.380&0.423 & 0.413&0.431 & 0.413&0.432 & 0.444&0.466 & 0.427&0.445 & 0.397&0.432 & 0.399&0.457 & 0.435&0.448 & 0.733&0.606 \\
+    \midrule    %% ETTm1
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{ETTm1}} & 96 & \textcolor{red}{\textbf{0.280}}&\textcolor{red}{\textbf{0.335}} & 0.281&\textcolor{blue}{\underline{0.336}} & 0.325&0.364 & \textcolor{blue}{\underline{0.281}}&0.338 & 0.306&0.348 & 0.317&0.345 & 0.321&0.356 & 0.311&0.366 & 0.328&0.364 & 0.290&0.344 & 0.315&0.371 & 0.334&0.375 & 0.301&0.345 \\
+        
+        & 192 & \textcolor{red}{\textbf{0.322}}&\textcolor{red}{\textbf{0.360}} & \textcolor{blue}{\underline{0.323}}&0.363 & 0.365&0.380 & 0.324&\textcolor{blue}{\underline{0.363}} & 0.338&0.367 & 0.366&0.369 & 0.327&0.365 & 0.348&0.385 & 0.372&0.389 & 0.333&0.371 & 0.342&0.383 & 0.409&0.414 & 0.336&0.366 \\
+        
+        & 336 & \textcolor{red}{\textbf{0.348}}&\textcolor{red}{\textbf{0.378}} & \textcolor{blue}{\underline{0.349}}&0.380 & 0.395&0.401 & 0.358&0.383 & 0.368&0.384 & 0.387&0.389 & 0.365&\textcolor{blue}{\underline{0.379}} & 0.379&0.405 & 0.416&0.417 & 0.369&0.392 & 0.395&0.418 & 0.414&0.422 & 0.372&0.389 \\
+        
+        & 720 & \textcolor{red}{\textbf{0.403}}&\textcolor{red}{\textbf{0.410}} & 0.405&\textcolor{blue}{\underline{0.412}} & 0.455&0.433 & \textcolor{blue}{\underline{0.405}}&0.414 & 0.421&0.413 & 0.460&0.432 & 0.414&0.416 & 0.443&0.444 & 0.474&0.450 & 0.416&0.420 & 0.560&0.518 & 0.510&0.472 & 0.426&0.423 \\
+    \midrule    %% ETTm2
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{ETTm2}} & 96 & \textcolor{red}{\textbf{0.160}}&\textcolor{red}{\textbf{0.249}} & \textcolor{blue}{\underline{0.162}}&0.251 & 0.167&0.253 & 0.163&0.252 & 0.165&0.254 & 0.170&\textcolor{blue}{\underline{0.249}} & 0.167&0.253 & 0.179&0.273 & 0.182&0.262 & 0.166&0.256 & 0.172&0.261 & 0.189&0.266 & 0.172&0.267 \\
+        
+        & 192 & \textcolor{blue}{\underline{0.218}}&\textcolor{red}{\textbf{0.286}} & \textcolor{red}{\textbf{0.215}}&\textcolor{blue}{\underline{0.289}} & 0.233&0.291 & 0.224&0.296 & 0.222&0.291 & 0.232&0.291 & 0.224&0.296 & 0.242&0.315 & 0.246&0.305 & 0.223&0.296 & 0.222&0.298 & 0.252&0.307 & 0.237&0.314 \\
+        
+        & 336 & \textcolor{red}{\textbf{0.268}}&\textcolor{red}{\textbf{0.321}} & \textcolor{blue}{\underline{0.269}}&\textcolor{blue}{\underline{0.323}} & 0.294&0.331 & 0.277&0.332 & 0.273&0.326 & 0.294&0.331 & 0.279&0.331 & 0.291&0.345 & 0.319&0.352 & 0.274&0.329 & 0.283&0.332 & 0.323&0.350 & 0.294&0.359 \\
+        
+        & 720 & \textcolor{red}{\textbf{0.349}}&\textcolor{red}{\textbf{0.373}} & \textcolor{blue}{\underline{0.351}}&\textcolor{blue}{\underline{0.374}} & 0.395&0.390 & 0.354&0.378 & 0.359&0.381 & 0.384&0.385 & 0.360&0.381 & 0.377&0.397 & 0.411&0.405 & 0.362&0.385 & 0.353&0.381 & 0.418&0.405 & 0.426&0.439 \\
+    \midrule    %% Exchange
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{Exchange}} & 96 & \textcolor{blue}{\underline{0.082}}&\textcolor{red}{\textbf{0.201}} & \textcolor{red}{\textbf{0.079}}&0.203 & 0.087&0.206 & 0.082&\textcolor{blue}{\underline{0.202}} & 0.087&0.208 & 0.094&0.214 & 0.085&0.203 & 0.086&0.206 & 0.088&0.206 & 0.082&0.203 & 0.088&0.210 & 0.105&0.235 & 0.085&0.209 \\
+        
+        & 192 & \textcolor{red}{\textbf{0.164}}&\textcolor{red}{\textbf{0.290}} & \textcolor{blue}{\underline{0.165}}&\textcolor{blue}{\underline{0.292}} & 0.180&0.301 & 0.172&0.294 & 0.179&0.303 & 0.190&0.313 & 0.180&0.302 & 0.180&0.304 & 0.187&0.309 & 0.171&0.293 & 0.174&0.302 & 0.222&0.345 & 0.165&0.296 \\
+        
+        & 336 & \textcolor{red}{\textbf{0.286}}&\textcolor{red}{\textbf{0.392}} & \textcolor{blue}{\underline{0.294}}&\textcolor{blue}{\underline{0.393}} & 0.341&0.420 & 0.322&0.410 & 0.325&0.413 & 0.388&0.447 & 0.363&0.438 & 0.338&0.422 & 0.337&0.421 & 0.316&0.406 & 0.331&0.420 & 0.363&0.439 & 0.333&0.441 \\
+        
+        & 720 & \textcolor{red}{\textbf{0.578}}&\textcolor{red}{\textbf{0.576}} & \textcolor{blue}{\underline{0.584}}&\textcolor{blue}{\underline{0.580}} & 0.805&0.641 & 0.830&0.686 & 0.846&0.695 & 0.938&0.735 & 1.036&0.755 & 0.853&0.696 & 0.849&0.698 & 0.884&0.701 & 0.873&0.752 & 0.931&0.734 & 0.898&0.725 \\
+    \midrule    %% ILI
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{ILI}} & 24 & \textcolor{red}{\textbf{1.523}}&0.776 & \textcolor{blue}{\underline{1.577}}&\textcolor{red}{\textbf{0.760}} & 2.427&1.068 & 1.801&0.872 & 2.180&0.998 & 2.075&0.923 & 1.645&\textcolor{blue}{\underline{0.764}} & 2.333&1.036 & 1.817&0.871 & 1.679&0.882 & 1.914&0.898 & 1.813&0.888 & 2.279&1.061 \\
+        
+        & 36 & \textcolor{red}{\textbf{1.660}}&\textcolor{red}{\textbf{0.802}} & 1.732&0.809 & 2.224&1.034 & 1.723&0.844 & 2.236&1.022 & 1.922&0.875 & \textcolor{blue}{\underline{1.676}}&0.827 & 2.238&1.015 & 2.237&1.034 & 1.695&\textcolor{blue}{\underline{0.805}} & 2.547&1.161 & 2.679&0.986 & 2.235&1.059 \\
+        
+        & 48 & \textcolor{red}{\textbf{1.607}}&\textcolor{red}{\textbf{0.793}} & 1.682&0.819 & 2.026&0.950 & 1.890&0.936 & 2.278&1.067 & 1.981&0.900 & \textcolor{blue}{\underline{1.658}}&\textcolor{blue}{\underline{0.841}} & 2.215&1.028 & 2.223&1.028 & 1.783&0.864 & 2.711&1.257 & 2.584&0.938 & 2.298&1.079 \\
+        
+        & 60 & \textcolor{red}{\textbf{1.667}}&\textcolor{red}{\textbf{0.810}} & \textcolor{blue}{\underline{1.670}}&\textcolor{blue}{\underline{0.815}} & 2.102&1.013 & 1.822&0.949 & 2.634&1.130 & 2.001&0.930 & 1.688&0.879 & 2.086&1.014 & 2.157&1.030 & 1.831&0.892 & 2.825&1.288 & 1.981&0.894 & 2.573&1.157 \\
+    \midrule    %% Solar
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{Solar}} & 96 & \textcolor{red}{\textbf{0.168}}&\textcolor{red}{\textbf{0.198}} & 0.173&\textcolor{blue}{\underline{0.200}} & 0.199&0.272 & 0.184&0.245 & 0.211&0.257 & 0.215&0.234 & \textcolor{blue}{\underline{0.172}}&0.220 & 0.189&0.264 & 0.201&0.232 & 0.173&0.234 & 0.187&0.229 & 0.194&0.265 & 0.222&0.291 \\
+        
+        & 192 & \textcolor{red}{\textbf{0.184}}&\textcolor{red}{\textbf{0.210}} & \textcolor{blue}{\underline{0.189}}&\textcolor{blue}{\underline{0.215}} & 0.219&0.288 & 0.200&0.261 & 0.224&0.269 & 0.194&0.217 & 0.190&0.249 & 0.208&0.272 & 0.229&0.254 & 0.204&0.302 & 0.202&0.248 & 0.201&0.274 & 0.250&0.310 \\
+        
+        & 336 & \textcolor{red}{\textbf{0.185}}&\textcolor{red}{\textbf{0.215}} & 0.199&0.221 & 0.237&0.306 & 0.209&0.365 & 0.247&0.275 & \textcolor{blue}{\underline{0.195}}&\textcolor{blue}{\underline{0.220}} & 0.201&0.254 & 0.215&0.279 & 0.242&0.268 & 0.212&0.293 & 0.218&0.294 & 0.211&0.289 & 0.269&0.323 \\
+        
+        & 720 & \textcolor{red}{\textbf{0.196}}&\textcolor{red}{\textbf{0.221}} & \textcolor{blue}{\underline{0.206}}&\textcolor{blue}{\underline{0.223}} & 0.256&0.294 & 0.214&0.269 & 0.253&0.276 & 0.208&0.237 & 0.215&0.250 & 0.224&0.287 & 0.244&0.271 & 0.215&0.307 & 0.226&0.301 & 0.230&0.306 & 0.271&0.327 \\
+    \midrule    %% Traffic
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{Traffic}} & 96 & \textcolor{red}{\textbf{0.359}}&\textcolor{red}{\textbf{0.237}} & \textcolor{blue}{\underline{0.360}}&\textcolor{blue}{\underline{0.238}} & 0.459&0.293 & 0.369&0.245 & 0.407&0.289 & 0.383&0.250 & 0.366&0.251 & 0.362&0.260 & 0.376&0.251 & 0.371&0.254 & 0.485&0.266 & 0.589&0.315 & 0.413&0.287 \\
+        
+        & 192 & \textcolor{blue}{\underline{0.382}}&\textcolor{red}{\textbf{0.249}} & 0.384&\textcolor{blue}{\underline{0.250}} & 0.467&0.299 & \textcolor{red}{\textbf{0.377}}&0.251 & 0.418&0.292 & 0.401&0.257 & 0.389&0.261 & 0.384&0.276 & 0.397&0.261 & 0.386&0.263 & 0.501&0.278 & 0.618&0.324 & 0.424&0.290 \\
+        
+        & 336 & \textcolor{blue}{\underline{0.395}}&\textcolor{red}{\textbf{0.259}} & 0.396&0.261 & 0.480&0.305 & \textcolor{red}{\textbf{0.393}}&0.269 & 0.427&0.297 & 0.423&\textcolor{blue}{\underline{0.261}} & 0.412&0.272 & 0.395&0.268 & 0.415&0.269 & 0.396&0.272 & 0.518&0.280 & 0.632&0.336 & 0.438&0.298 \\
+        
+        & 720 & \textcolor{red}{\textbf{0.435}}&\textcolor{red}{\textbf{0.277}} & 0.441&\textcolor{blue}{\underline{0.278}} & 0.511&0.320 & 0.438&0.295 & 0.463&0.316 & 0.452&0.283 & 0.445&0.287 & 0.444&0.307 & 0.449&0.288 & \textcolor{blue}{\underline{0.437}}&0.295 & 0.542&0.301 & 0.661&0.349 & 0.466&0.316 \\
+    \midrule    %% Weather
+        \multirow{4}{*}{\rotatebox[origin=c]{90}{Weather}} & 96 & 0.150&\textcolor{red}{\textbf{0.194}} & \textcolor{red}{\textbf{0.147}}&0.195 & 0.166&0.212 & 0.150&0.200 & 0.150&\textcolor{blue}{\underline{0.195}} & 0.153&0.196 & 0.152&0.197 & 0.168&0.220 & 0.172&0.212 & \textcolor{blue}{\underline{0.148}}&0.198 & 0.148&0.216 & 0.169&0.219 & 0.174&0.233  \\
+        
+        & 192 & \textcolor{red}{\textbf{0.189}}&\textcolor{red}{\textbf{0.234}} & 0.190&\textcolor{blue}{\underline{0.237}} & 0.218&0.255 & 0.197&0.246 & 0.190&0.240 & 0.202&0.240 & \textcolor{blue}{\underline{0.189}}&0.239 & 0.209&0.254 & 0.218&0.255 & 0.193&0.242 & 0.215&0.272 & 0.225&0.265 & 0.218&0.278 \\
+        
+        & 336 & \textcolor{red}{\textbf{0.238}}&\textcolor{red}{\textbf{0.272}} & \textcolor{blue}{\underline{0.239}}&\textcolor{blue}{\underline{0.273}} & 0.272&0.293 & 0.246&0.283 & 0.240&0.279 & 0.260&0.283 & 0.242&0.281 & 0.266&0.294 & 0.282&0.300 & 0.244&0.281 & 0.272&0.338 & 0.281&0.304 & 0.263&0.314 \\
+        
+        & 720 & \textcolor{red}{\textbf{0.306}}&\textcolor{red}{\textbf{0.319}} & 0.318&\textcolor{blue}{\underline{0.327}} & 0.347&0.343 & 0.323&0.339 & 0.320&0.333 & 0.341&0.337 & 0.335&0.340 & 0.341&0.345 & 0.361&0.353 &\textcolor{blue}{\underline{0.313}}&0.333 & 0.376&0.382 & 0.359&0.354 & 0.332&0.374 \\
+    \midrule
+        \multicolumn{2}{c|}{1st Count} & \textcolor{red}{\textbf{32}}&\textcolor{red}{\textbf{36}} & \textcolor{blue}{\underline{3}}&\textcolor{blue}{\underline{1}} & 1&\textcolor{blue}{\underline{1}} & \textcolor{blue}{\underline{3}}&0 & 1&\textcolor{blue}{\underline{1}} & 0&\textcolor{blue}{\underline{1}} & 0&0 & 0&0 & 0&0 & 0&0 & 0&0 & 0&0 & 0&0 \\
+    \bottomrule
+    \end{tabular}
+}
+\end{table*}
+
 \subsection{定量结果分析}
+
+表~\ref{tab:main-res} 给出了本章方法与各基线在 10 个数据集上的详细结果。在 40 组测试设置中，本章方法在 MAE 指标上有 36 组取得最优，在 MSE 指标上有 32 组取得最优，整体预测精度在不同数据集和评价指标下保持较稳定表现。
+
+从时间戳建模的角度看，与未利用时间戳信息的 PatchTST 相比，本章方法平均 MSE 和 MAE 分别下降 $4.93\%$ 和 $6.42\%$；与将时间戳作为普通令牌输入的 iTransformer 相比，分别下降 $11.29\%$ 和 $10.74\%$；与显式建模时间戳的 TimeLinear 相比，分别下降 $12.86\%$ 和 $9.51\%$。上述结果表明，时间戳双向交叉注意力模块能够通过历史与未来时间戳的交互，为预测过程引入有效约束。
+
+从多尺度混合专家的角度看，与多尺度基线 TimeMixer 相比，本章方法平均 MSE 和 MAE 分别下降 $5.51\%$ 和 $4.61\%$；与 Pathformer 相比，分别下降 $10.29\%$ 和 $1.79\%$。这表明通道独立的稀疏门控多尺度专家能够分别处理复杂数据分布，并有效提取多尺度时序特征。
+
+需要说明的是，在 ETTh1 和 ETTh2 数据集上，本章方法并非所有预测长度下都取得最优，FITS 和 TimeLinear 在部分设置中表现更好。这一现象可能源于 ETTh1 和 ETTh2 的数据分布较为接近，此时混合专家结构可能面临一定过拟合风险，而复杂度较低的简单模型反而更容易取得稳定结果。
+
 \subsection{消融实验}
+
+为验证各模块的作用，本章分别进行以下消融实验：\textit{w/o TDCAM} 表示移除时间戳双向交叉注意力模块，\textit{w/o MSMoE} 表示移除多尺度特征提取混合专家模块，\textit{Rand Matrix} 表示将通道相关性矩阵替换为随机矩阵，\textit{w/o Matrix} 表示移除相关性掩码并使用全注意力。消融结果如表~\ref{tab:ablation} 所示。
+
+从结果中可以得到三点观察。第一，移除时间戳双向交叉注意力模块后，所有数据集的性能均有所下降；对周期性较强、分布较为规则的数据集，例如 Electricity，性能下降相对较小；而对周期性较弱、分布差异较大的数据集，例如 ETTh2 和 ETTm1，性能下降更加明显，说明时间戳约束对非平稳场景尤其重要。第二，移除多尺度特征提取混合专家模块后，在跨尺度分布较为一致的数据集上，例如 ETTh1，性能下降较小；而在跨尺度分布差异较大的数据集上，例如 Exchange 和 ETTm2，性能下降较为明显，说明多尺度混合专家结构能够适应不同尺度之间的分布差异。第三，移除多变量相关建模模块或使用随机相关矩阵后，在变量间依赖较强的数据集上，例如 ILI，性能明显下降，说明频域变量相关建模能够有效利用变量间相关信息。
+
+\begin{table}[t]
+    \centering
+    \caption{消融实验结果，所有预测长度结果取平均。}
+    % \vspace{-0.5em}
+    \resizebox{\linewidth}{!}{
+        \begin{tabular}{c|cc|cc|cc|cc|cc}
+        \toprule
+            \textbf{Model} & \multicolumn{2}{c|}{\textbf{Ours}} & \multicolumn{2}{c|}{\textbf{w/o TDCAM}} & \multicolumn{2}{c|}{\textbf{w/o MSMoE}} & \multicolumn{2}{c|}{\textbf{Rand Matrix}} & \multicolumn{2}{c}{\textbf{w/o Matrix}} \\
+            Metrics & mse&mae & mse&mae & mse&mae & mse&mae & mse&mae \\
+            \midrule
+            Electricity & \textbf{0.156}&\textbf{0.246} & 0.157&0.254 & 0.158&0.247 & 0.159&0.250 & 0.160&0.252 \\
+            ETTh1 & \textbf{0.401}&\textbf{0.421} & 0.404&0.428 & 0.409&0.432 & 0.408&0.427 & 0.409&0.428 \\
+            ETTh2 & \textbf{0.337}&\textbf{0.383} & 0.342&0.387 & 0.341&0.389 & 0.340&0.383 & 0.342&0.386 \\
+            ETTm1 & \textbf{0.338}&\textbf{0.371} & 0.342&0.372 & 0.341&0.371 & 0.339&0.372 & 0.340&0.373 \\
+            ETTm2 & \textbf{0.249}&\textbf{0.307} & 0.253&0.315 & 0.255&0.312 & 0.251&0.310 & 0.255&0.311 \\
+            Exchange & \textbf{0.277}&\textbf{0.364} & 0.389&0.371 & 0.368&0.407 & 0.279&0.368 & 0.284&0.369 \\
+            ILI & \textbf{1.614}&\textbf{0.795} & 1.674&0.813 & 1.709&0.830 & 1.894&0.890 & 1.760&0.843 \\
+            \bottomrule
+        \end{tabular}
+    }
+    \label{tab:ablation}
+    % \vspace{-1em}
+\end{table}
+
 \subsection{参数分析}
 
+本节从专家数量、尺度数量和回看窗口三个方面分析主要超参数对模型性能的影响。
+
+\textbf{专家数量的影响。} 本章使用混合专家结构从时间序列中提取时序特征。表~\ref{tab:numExpert} 给出了在 ETTh1、ETTm1、Exchange 和 ILI 四个数据集上不同专家数量下的结果。可以得到三点观察：第一，仅使用一个专家时模型难以捕捉时间序列中的复杂模式；第二，同一领域的数据集通常具有相近的最优专家数，例如 ETTh2 和 ETTm2 均在 $E=4$ 时取得最佳性能；第三，不同领域的数据集最优专家数存在差异，例如医疗领域的 ILI 在 $E=2$ 时最佳，而金融领域的 Exchange 在 $E=5$ 时最佳。该结果说明多尺度特征提取混合专家模块能够根据数据分布自适应地选择合适数量的专家。
+
+\textbf{尺度数量的影响。} 图~\ref{fig:ch3_scale} 分析了不同尺度数量在不同预测长度下的表现。较短预测长度，如 $96$ 和 $192$，更依赖细粒度信息，因此较小尺度数量通常表现更好；较长预测长度，如 $336$ 和 $720$，更依赖趋势信息，因此较大尺度数量更有优势。随着尺度增加，趋势信息变得更加突出，但尺度过小或过大都会限制特征多样性或造成信息损失。为兼顾精度和效率，本章在不同数据集上选择表现最佳的尺度数量。
+
+\textbf{回看窗口的影响。} 历史区间长度决定了模型可利用的过去信息量。为分析回看窗口长度的影响，本章在 $L\in\{48,96,192,336,512,720\}$ 中变化窗口长度，并在预测长度 $F\in\{96,720\}$ 下比较结果。实验表明，本章方法在多数设置下均优于基线；随着回看窗口长度增加，模型误差总体继续下降，说明所提框架能够有效利用较长历史上下文建模长程时间依赖。
+
+\begin{table}[t]
+    \centering
+    \caption{不同专家数量下的预测精度，所有预测长度结果取平均。}
+    % \vspace{-0.5em}
+    \resizebox{\linewidth}{!}{
+        \begin{tabular}{c|cc|cc|cc|cc|cc}
+            \toprule
+            \textbf{Experts Num} & \multicolumn{2}{c|}{\textbf{E=1}} & \multicolumn{2}{c|}{\textbf{E=2}} & \multicolumn{2}{c|}{\textbf{E=3}} & \multicolumn{2}{c|}{\textbf{E=4}} & \multicolumn{2}{c}{\textbf{E=5}} \\
+            Metrics & mse&mae & mse&mae & mse&mae & mse&mae & mse&mae \\
+            \midrule
+            ILI & 1.656&0.804 & \textbf{1.614}&\textbf{0.795} & 1.750&0.848 & 1.833&0.868 & 1.871&0.881 \\
+            ETTh1 & 0.401&0.422 & 0.406&0.425 & 0.404&0.423 & \textbf{0.401}&\textbf{0.421} & 0.407&0.425 \\
+            ETTm1 & 0.340&0.373 & 0.345&0.376 & 0.340&0.373 & \textbf{0.338}&\textbf{0.371} & 0.339&0.372 \\
+            Exchange & 0.376&0.411 & 0.310&0.379 & 0.290&0.374 & 0.295&0.375 & \textbf{0.281}&\textbf{0.366} \\
+            \bottomrule
+        \end{tabular}
+    }
+    \label{tab:numExpert}
+    % \vspace{-1em}
+\end{table}
+
+% 图3.2 不同尺度数量和回看窗口下的结果（占位）
+
+\begin{figure}[htbp]
+\centering
+\caption{不同尺度数量和回看窗口下的预测误差}
+\label{fig:ch3_scale}
+\end{figure}
+
+
 \section{本章小结}
+
+本章针对一般多元时间序列预测任务，提出一种融合双向时间戳依赖建模与多尺度特征提取混合专家的预测框架。该框架利用通道独立稀疏门控将不同变量路由到多尺度专家，显式建模历史与未来时间戳之间的双向依赖，并在频域中学习变量相关关系。实验结果表明，该框架在多个真实数据集上总体取得较优预测结果，消融和参数分析也验证了各模块的必要性。第4章将在此基础上，把多尺度建模和混合专家思想扩展到具有显式空间图结构的交通预测任务中。

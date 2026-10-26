@@ -1,4 +1,5 @@
 \chapter{相关理论基础}
+本章侧重于本文方法所依赖的关键技术与理论基础，对多元时间序列预测、深度学习方法建模、图神经网络方法建模等方向进行归纳与分析。与第\ref{sec:currentWork}节对国内外研究现状的宏观描述不同，本章聚焦于从方法论与建模框架层面抽象时间序列预测与时空预测的共性假设与核心机制，为后续章节的模型构建、实验设计与结果分析提供统一的技术背景与理论支撑。
 
 \section{时空序列预测问题定义}
 
@@ -111,7 +112,7 @@ f_{\theta}: \left(\mathcal{X}_{t-T+1:t}, \mathcal{G}\right) \mapsto \hat{\mathbf
 Transformer~\cite{attention} 以自注意力机制替代循环和卷积，通过全局交互捕捉任意两个时间步或令牌之间的依赖关系。给定查询 $\mathbf{Q}$、键 $\mathbf{K}$ 和值 $\mathbf{V}$，缩放点积注意力定义为
 \begin{equation}
 \mathrm{Attention}\!\left(\mathbf{Q}, \mathbf{K}, \mathbf{V}\right)
-=\mathrm{softmax}\!\left(\frac{\mathbf{Q} \mathbf{K}^{\top}}{\sqrt{d_k}}\right) \mathbf{V},
+=\mathrm{Softmax}\!\left(\frac{\mathbf{Q} \mathbf{K}^{\top}}{\sqrt{d_k}}\right) \mathbf{V},
 \end{equation}
 其中 $d_k$ 为键向量的维度。为从不同子空间提取信息，多头注意力将查询、键和值分别投影到 $N_{\mathrm{h}}$ 个头上，再拼接各头的输出：
 \begin{equation}
@@ -172,7 +173,32 @@ Pyraformer~\cite{pyraformer} 通过金字塔注意力在不同时间尺度上建
 \quad
 \mathbf{x}_{\mathrm{even}}' = \mathbf{x}_{\mathrm{even}} + \phi_{e}\!\left(\mathbf{x}_{\mathrm{odd}}\right),
 \end{equation}
-其中 $\phi_o(\cdot)$ 和 $\phi_e(\cdot)$ 为可学习卷积模块，输出通过逆拆分恢复原分辨率。TimeMixer~\cite{timemixer} 在多个尺度上分别分解趋势项和季节项，并通过尺度间混合增强表示；Pathformer~\cite{pathformer} 根据序列特性自适应选择不同长度的分块路径；PDF~\cite{pdf} 从周期解耦的角度建模长时预测中的多周期结构。
+其中 $\phi_o(\cdot)$ 和 $\phi_e(\cdot)$ 为可学习卷积模块，输出通过逆拆分恢复原分辨率。
+
+TimeMixer~\cite{timemixer} 首先通过平均池化将历史序列下采样为多个时间尺度，并在每个尺度上利用移动平均将序列分解为趋势项和季节项。设第 $s$ 个尺度上的输入为 $\mathbf{X}^{(s)}$，其中 $s=0,\ldots,M$，且 $\mathbf{X}^{(0)}$ 为原始序列，则其多尺度下采样和趋势—季节分解可写为
+\begin{equation}
+\mathbf{X}^{(s)} = \mathrm{AvgPool}\!\left(\mathbf{X}^{(s-1)}\right),
+\qquad
+\mathbf{T}^{(s)} = \mathrm{AvgPool}\!\left(\mathrm{Padding}\!\left(\mathbf{X}^{(s)}\right)\right),
+\qquad
+\mathbf{S}^{(s)} = \mathbf{X}^{(s)} - \mathbf{T}^{(s)}.
+\end{equation}
+在 Past-Decomposable-Mixing 阶段，TimeMixer 对季节项采用自底向上的方式从细粒度到粗粒度进行混合，对趋势项采用自顶向下的方式从粗粒度到细粒度进行混合：
+\begin{equation}
+\tilde{\mathbf{S}}^{(s)} = \mathbf{S}^{(s)} + \mathrm{FFN}_{s}^{(s)}\!\left(\tilde{\mathbf{S}}^{(s-1)}\right),
+\quad s=1,\ldots,M,
+\end{equation}
+\begin{equation}
+\tilde{\mathbf{T}}^{(s)} = \mathbf{T}^{(s)} + \mathrm{FFN}_{t}^{(s)}\!\left(\tilde{\mathbf{T}}^{(s+1)}\right),
+\quad s=M-1,\ldots,0.
+\end{equation}
+随后，TimeMixer 将各尺度上混合后的季节项和趋势项相加，并通过 Future-MultiPredictor-Mixing 在不同尺度上分别生成预测，再对各尺度预测进行加权融合：
+\begin{equation}
+\hat{\mathbf{X}} = \sum_{s=0}^{M} \alpha^{(s)} \, \mathrm{Predictor}^{(s)}\!\left(\tilde{\mathbf{S}}^{(s)} + \tilde{\mathbf{T}}^{(s)}\right),
+\end{equation}
+其中 $\alpha^{(s)}$ 为尺度 $s$ 上的融合权重。该设计显式分离了不同尺度上的趋势和周期信息，但其尺度分解与混合过程通常对所有通道共享同一套参数，未区分不同变量在时间分布上的差异。
+
+Pathformer~\cite{pathformer} 根据序列特性自适应选择不同长度的分块路径；PDF~\cite{pdf} 从周期解耦的角度建模长时预测中的多周期结构。
 
 频域方法从另一角度刻画尺度信息。离散傅里叶变换可将时序信号映射到频域，从而显式提取周期性成分：
 \begin{equation}
@@ -214,7 +240,7 @@ STGCN~\cite{stgcn} 将图卷积与一维时序卷积交替堆叠，系统地把�
 \end{equation}
 其中 $\mathbf{D}_{O}$ 和 $\mathbf{D}_{I}$ 分别为出度矩阵和入度矩阵。DCRNN 在编码器—解码器结构中采用 GRU 对时间依赖建模，并通过序列到序列训练逐步输出未来多步预测。Graph WaveNet~\cite{gwnet} 进一步提出自适应邻接矩阵，利用节点嵌入学习隐式空间关系：
 \begin{equation}
-\mathbf{A}_{\mathrm{adp}} = \mathrm{softmax}\!\left(\mathrm{ReLU}\!\left(\mathbf{U}_1 \mathbf{U}_2^{\top}\right)\right),
+\mathbf{A}_{\mathrm{adp}} = \mathrm{Softmax}\!\left(\mathrm{ReLU}\!\left(\mathbf{U}_1 \mathbf{U}_2^{\top}\right)\right),
 \end{equation}
 其中 $\mathbf{U}_1$ 和 $\mathbf{U}_2$ 为可学习节点嵌入。Graph WaveNet 的时间卷积采用门控机制：
 \begin{equation}
@@ -236,7 +262,7 @@ ASTGCN~\cite{astgcn} 在时空卷积中引入注意力机制，对不同时间�
 \qquad
 \mathbf{A}^{(s)} = \mathbf{S}^{(s)\top} \mathbf{A}^{(s-1)} \mathbf{S}^{(s)}.
 \end{equation}
-分组矩阵既可以由地理距离、谱聚类等先验知识构造，也可以通过图池化或注意力机制从数据中学习。若使用可学习的分组矩阵，则可通过对分组概率进行 softmax 归一化保证每个节点到上层节点的贡献之和为 1。为了将粗尺度特征与原始尺度特征联合使用，多尺度融合通常可写为
+分组矩阵既可以由地理距离、谱聚类等先验知识构造，也可以通过图池化或注意力机制从数据中学习。若使用可学习的分组矩阵，则可通过对分组概率进行 Softmax 归一化保证每个节点到上层节点的贡献之和为 1。为了将粗尺度特征与原始尺度特征联合使用，多尺度融合通常可写为
 \begin{equation}
 \mathbf{H} = \sum_{s=1}^{S} \alpha_s \, \mathrm{Upsample}_s\!\left(\mathbf{H}^{(s)}\right),
 \end{equation}
@@ -252,9 +278,9 @@ HGCN~\cite{hgcn} 基于距离邻接矩阵进行谱聚类，构造层次化空间
 \begin{equation}
 \mathbf{y} = \sum_{i=1}^{M_{\mathrm{exp}}} g_i(\mathbf{x}) f_i(\mathbf{x}),
 \end{equation}
-其中门控权重由 softmax 归一化得到：
+其中门控权重由 Softmax 归一化得到：
 \begin{equation}
-\mathbf{g}(\mathbf{x}) = \mathrm{softmax}\!\left(\mathbf{W}_{g} \mathbf{x} + \mathbf{b}_g\right).
+\mathbf{g}(\mathbf{x}) = \mathrm{Softmax}\!\left(\mathbf{W}_{g} \mathbf{x} + \mathbf{b}_g\right).
 \end{equation}
 当专家数量较大时，令所有专家参与计算会带来较高的计算开销。稀疏门控 MoE~\cite{moe} 在每个输入上只激活少数专家。设 $h_i(\mathbf{x})$ 为第 $i$ 个专家的路由得分，$\mathcal{T}_k(\mathbf{x})$ 为得分最高的 $k$ 个专家的索引集合，则 Top-$k$ 门控可写为
 \begin{equation}
@@ -291,4 +317,8 @@ h_i(\mathbf{x}) = \left(\mathbf{x} \mathbf{W}_{g}\right)_i + \mathrm{Softplus}\!
 
 \section{本章小结}
 
-本章首先给出了一般多元时间序列预测和基于图的时空交通预测两类问题的统一定义与符号约定，并明确了时间非平稳、通道分布异质性和空间多尺度依赖等核心难点。随后回顾了 RNN、LSTM、GRU、TCN、Transformer、频域分析和多尺度时序建模等多元时间序列预测方法，给出了关键网络结构和损失函数的公式化描述，并分析了它们在长程依赖、分布漂移和尺度建模方面的进展与不足。接着介绍了谱图卷积、GCN、STGCN、DCRNN、Graph WaveNet、注意力时空图建模和多尺度空间建模等交通预测方法，指出静态图与动态图、局部依赖与全局依赖需要协同建模。最后阐述了稀疏门控混合专家的路由、负载均衡和训练机制，以及其在时空预测中的典型应用。上述内容为第3章的时间多尺度混合专家框架和第4章的空间多尺度与静动态双混合专家框架提供了统一的符号基础与理论支撑。
+本章对时空序列预测相关理论基础进行了系统回顾。
+
+首先，本章给出了一般多元时间序列预测和基于图的时空交通预测两类问题的统一定义与符号约定，明确了时间非平稳、通道分布异质性和空间多尺度依赖等核心难点。随后，本章梳理了 RNN、LSTM、GRU、TCN、Transformer、频域分析和多尺度时序建模等方法，重点分析了现有模型在长程依赖、分布漂移和多尺度表示方面的进展与不足。在此基础上，本章进一步介绍了谱图卷积、注意力时空图建模和多尺度空间建模等交通预测方法，指出交通预测需要同时处理静态图结构与动态时空依赖、局部拥堵传播与区域级流量转移。最后，本章总结了稀疏门控混合专家的路由、负载均衡和训练机制，并分析了现有时空混合专家方法尚未充分结合多尺度表示与稀疏激活的问题。
+
+综上所述，现有工作已经为时空序列预测提供了较为丰富的技术基础，但在多尺度表示以及静态—动态依赖协同建模等方面仍有值得进一步探索的空间。这些思考也为本文后续工作提供了一定的研究切入点：第3章尝试在时间维度上探索多尺度时序混合专家与双向时间戳依赖建模，第4章尝试在空间维度上探索空间多尺度建模与静动态双混合专家方法，希望能在一定程度上缓解时空非平稳性和变量间分布异质性对预测带来的影响。
