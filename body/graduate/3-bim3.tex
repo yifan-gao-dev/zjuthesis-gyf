@@ -9,10 +9,10 @@
 
 \subsection{问题定义与总体框架}
 
-沿用第2章记号，本章考虑一般多元时间序列预测中的单变量观测情形。设历史观测为 $\mathbf{X}\in\mathbb{R}^{T\times N}$，其中 $T$ 为历史长度，$N$ 为变量数，$\mathbf{X}_{t,n}$ 表示第 $n$ 个变量在时刻 $t$ 的观测值。历史时间戳和未来时间戳分别记为 $\mathbf{T}^{\mathrm{hist}}$ 和 $\mathbf{T}^{\mathrm{fut}}$，其编码矩阵分别为 $\mathbf{E}^{\mathrm{hist}}\in\mathbb{R}^{T\times d_{\tau}}$ 和 $\mathbf{E}^{\mathrm{fut}}\in\mathbb{R}^{H\times d_{\tau}}$，$H$ 为预测长度，$d_{\tau}$ 为时间戳编码维度。模型的目标是学习映射
+本章考虑一般多元时间序列预测中的单变量观测情形。设历史观测为 ${X}\in\mathbb{R}_{T\times N}$，其中 $T$ 为历史长度，$N$ 为变量数，${X}_{t,n}$ 表示第 $n$ 个变量在时刻 $t$ 的观测值。历史时间戳和未来时间戳分别记为 ${T}_{{hist}}$ 和 ${T}_{{fut}}$，其编码矩阵分别为 ${E}_{{hist}}\in\mathbb{R}_{T\times d_{\tau}}$ 和 ${E}_{{fut}}\in\mathbb{R}_{H\times d_{\tau}}$，$H$ 为预测长度，$d_{\tau}$ 为时间戳编码维度。模型的目标是学习映射
 \begin{equation}
-f_{\theta}:\left(\mathbf{X},\mathbf{T}^{\mathrm{hist}},\mathbf{T}^{\mathrm{fut}}\right)
-\mapsto \hat{\mathbf{X}}\in\mathbb{R}^{H\times N}.
+f_{\theta}:\left({X},{T}_{{hist}},{T}_{{fut}}\right)
+\mapsto Y_\mathrm{pred}\in\mathbb{R}^{H\times N}.
 \end{equation}
 
 整体框架如图~\ref{fig:ch3_framework} 所示。模型以历史观测、历史时间戳和未来时间戳作为输入。首先对时间序列进行实例归一化~\cite{revin}，以对齐训练和测试数据的分布。随后，归一化数据分别进入两个主要模块：多尺度特征提取混合专家模块通过通道独立的路由网络，将不同变量分配到相应的多尺度专家；多变量相关建模模块在频域中利用可学习马氏矩阵提取变量之间的相关关系。最后，时间戳双向交叉注意力模块融合多尺度时序特征、相关性矩阵、归一化时间序列和时间戳，通过双向交叉注意力生成最终预测，并引入辅助约束损失。
@@ -21,7 +21,8 @@ f_{\theta}:\left(\mathbf{X},\mathbf{T}^{\mathrm{hist}},\mathbf{T}^{\mathrm{fut}}
 
 \begin{figure}[htbp]
 \centering
-\caption{本章方法总体框架图}
+\includegraphics[width=\linewidth]{figure/bim3-pipeline.pdf}
+\caption{多尺度时序混合专家与双向时间戳依赖建模的多元时间序列预测框架图}
 \label{fig:ch3_framework}
 \end{figure}
 
@@ -30,76 +31,76 @@ f_{\theta}:\left(\mathbf{X},\mathbf{T}^{\mathrm{hist}},\mathbf{T}^{\mathrm{fut}}
 
 为有效建模多元时间序列中异质的数据分布，本章提出多尺度特征提取混合专家模块。为保证计算效率，该模块以稀疏门控混合专家层~\cite{moe} 为基本结构。路由网络根据数据分布将时间序列分配给不同专家，而每个多尺度特征提取专家进一步从被路由的序列中提取多尺度时序特征。路由和特征提取均以通道独立方式进行，使模型能够保留不同变量特有的时序模式，而不是对所有通道使用同一组共享参数。
 
-\textbf{时间序列路由。} 对第 $n$ 个变量的历史序列 $\mathbf{x}_n=\mathbf{X}_{:,n}\in\mathbb{R}^{T}$，首先通过两个全连接分支将其投影到低维空间，以得到用于路由的分布特征~\cite{vae}：
+\textbf{时间序列路由。} 对第 $n$ 个变量的历史序列 $X_n={X}_{:,n}\in\mathbb{R}^{T}$，首先通过两个全连接分支将其投影到低维空间，以得到用于路由的分布特征~\cite{vae}：
 \begin{equation}
-\mathbf{g}_n=\max\!\left(0,\mathbf{x}_n\mathbf{W}_{g0}\right)\mathbf{W}_{g1},
+{g}_n=\max\!\left(0,X_n{W}_{g0}\right){W}_{g1},
 \qquad
-\mathbf{n}_n=\max\!\left(0,\mathbf{x}_n\mathbf{W}_{n0}\right)\mathbf{W}_{n1},
+{n}_n=\max\!\left(0,X_n{W}_{n0}\right){W}_{n1},
 \end{equation}
-其中 $\mathbf{W}_{g0},\mathbf{W}_{n0}\in\mathbb{R}^{T\times d_0}$，$\mathbf{W}_{g1},\mathbf{W}_{n1}\in\mathbb{R}^{d_0\times N_e}$，$d_0$ 为隐层维度，$N_e$ 为专家数。
+其中 ${W}_{g0},{W}_{n0}\in\mathbb{R}^{T\times d_0}$，${W}_{g1},{W}_{n1}\in\mathbb{R}^{d_0\times N_e}$，$d_0$ 为隐层维度，$N_e$ 为专家数。
 
 随后采用噪声门控技术~\cite{moe} 选择概率最高的 $k$ 个专家，$k\leq N_e$，并计算相应权重：
 \begin{equation}
-\mathbf{G}(\mathbf{x}_n)=\mathrm{Softmax}\!\left(\mathrm{KeepTopK}\!\left(\mathbf{H}(\mathbf{x}_n),k\right)\right),
+{G}(X_n)=\mathrm{Softmax}\!\left(\mathrm{KeepTopK}\!\left({H}(X_n),k\right)\right),
 \end{equation}
 \begin{equation}
-\mathbf{H}(\mathbf{x}_n)=\mathbf{W}_h\left(\mathbf{g}_n+\gamma\,\mathrm{Softplus}\!\left(\mathbf{n}_n\right)\right),
+{H}(X_n)={W}_h\left({g}_n+\gamma\,\mathrm{Softplus}\!\left({n}_n\right)\right),
 \end{equation}
 \begin{equation}
-\mathrm{KeepTopK}(\mathbf{v},k)_i=
+\mathrm{KeepTopK}({v},k)_i=
 \left\{
 \begin{array}{ll}
-v_i, & v_i \ \mbox{为}\ \mathbf{v} \ \mbox{的前}\ k\ \mbox{个最大元素},\\
+v_i, & v_i \ \mbox{为}\ {v} \ \mbox{的前}\ k\ \mbox{个最大元素},\\
 -\infty, & \mbox{否则}.
 \end{array}
 \right.
 \end{equation}
-其中 $\mathbf{H}(\mathbf{x}_n)\in\mathbb{R}^{N_e}$，$\mathbf{W}_h\in\mathbb{R}^{N_e\times N_e}$，$\mathbf{G}(\mathbf{x}_n)\in\mathbb{R}^{k}$，$\gamma\sim\mathcal{N}(0,1)$。引入噪声 $\gamma$ 有利于重采样并稳定噪声门控的训练过程；Softplus 用于保持门控信号为正。$\mathbf{H}(\mathbf{x}_n)$ 表示所有潜在分布的得分，$\mathbf{G}(\mathbf{x}_n)$ 表示被选中专家的归一化路由权重。每个变量 $\mathbf{x}_n$ 将根据其可能的分布被路由到 $k$ 个专家。
+其中 ${H}(X_n)\in\mathbb{R}^{N_e}$，${W}_h\in\mathbb{R}^{N_e\times N_e}$，${G}(X_n)\in\mathbb{R}^{k}$，$\gamma\sim\mathcal{N}(0,1)$。引入噪声 $\gamma$ 有利于重采样并稳定噪声门控的训练过程；Softplus 用于保持门控信号为正。${H}(X_n)$ 表示所有潜在分布的得分，${G}(X_n)$ 表示被选中专家的归一化路由权重。每个变量 $X_n$ 将根据其可能的分布被路由到 $k$ 个专家。
 
-\textbf{多尺度特征提取专家。} 路由完成后，$\mathbf{x}_n$ 被送入 $k$ 个选中的多尺度专家。对第 $s$ 个尺度，使用平均池化得到多尺度时间序列 $\{\mathbf{x}_n^{(0)},\ldots,\mathbf{x}_n^{(S)}\}$：
+\textbf{多尺度特征提取专家。} 路由完成后，$X_n$ 被送入 $k$ 个选中的多尺度专家。对第 $s$ 个尺度，使用平均池化得到多尺度时间序列 $\{X_n^{(0)},\ldots,X_n^{(S)}\}$：
 \begin{equation}
-\mathbf{x}_n^{(s)}=\mathrm{AvgPool}_s\!\left(\mathbf{x}_n\right),
+X_n^{(s)}=\mathrm{AvgPool}_s\!\left(X_n\right),
 \qquad s=0,1,\ldots,S,
 \end{equation}
-其中 $\mathbf{x}_n^{(0)}=\mathbf{x}_n$，保留最细粒度的时间变化；$\mathbf{x}_n^{(S)}$ 表示最粗粒度的宏观信息。由于季节项和趋势项在时间序列分析中具有不同性质~\cite{autoformer,1990STL}，对每个尺度进行趋势—季节分解：
+其中 $X_n^{(0)}=X_n$，保留最细粒度的时间变化；$X_n^{(S)}$ 表示最粗粒度的宏观信息。由于季节项和趋势项在时间序列分析中具有不同性质~\cite{autoformer,1990STL}，对每个尺度进行趋势—季节分解：
 \begin{equation}
-\mathbf{s}_n^{(s)},\mathbf{t}_n^{(s)}=\mathrm{SeriesDecomp}\!\left(\mathbf{x}_n^{(s)}\right),
+{s}_n^{(s)},{t}_n^{(s)}=\mathrm{SeriesDecomp}\!\left(X_n^{(s)}\right),
 \qquad s=0,\ldots,S,
 \end{equation}
-其中 $\mathbf{s}_n^{(s)}$ 为季节项，$\mathbf{t}_n^{(s)}$ 为趋势项。
+其中 ${s}_n^{(s)}$ 为季节项，${t}_n^{(s)}$ 为趋势项。
 
 本章使用带 GELU 激活的前馈网络分别融合季节项和趋势项，使不同尺度之间能够进行信息交互。考虑到季节项在较低尺度上具有更明显特征，而趋势项在较高尺度上更突出，本章参考 TimeMixer~\cite{timemixer} 的做法，对季节项采用自底向上的融合策略，对趋势项采用自顶向下的融合策略：
 \begin{equation}
-\mathbf{s}_n^{(s)}\leftarrow \mathbf{s}_n^{(s)}+\mathrm{FFN}_{\mathrm{seas}}^{(s)}\!\left(\mathbf{s}_n^{(s-1)}\right),
+{s}_n^{(s)}\leftarrow {s}_n^{(s)}+\mathrm{FFN}_{{seas}}^{(s)}\!\left({s}_n^{(s-1)}\right),
 \qquad s=1,\ldots,S,
 \end{equation}
 \begin{equation}
-\mathbf{t}_n^{(s)}\leftarrow \mathbf{t}_n^{(s)}+\mathrm{FFN}_{\mathrm{trend}}^{(s)}\!\left(\mathbf{t}_n^{(s+1)}\right),
+{t}_n^{(s)}\leftarrow {t}_n^{(s)}+\mathrm{FFN}_{{trend}}^{(s)}\!\left({t}_n^{(s+1)}\right),
 \qquad s=S-1,\ldots,0.
 \end{equation}
 随后将同一尺度上的融合季节项与趋势项相加，并投影到相同隐空间。第 $e$ 个专家生成的时序特征为
 \begin{equation}
-\mathbf{h}_n^{(e)}=\sum_{s=0}^{S}\mathbf{W}_{\mathrm{mix}}^{(s)}\left(\mathbf{s}_n^{(s)}+\mathbf{t}_n^{(s)}\right),
+{h}_n^{(e)}=\sum_{s=0}^{S}{W}_{{mix}}^{(s)}\left({s}_n^{(s)}+{t}_n^{(s)}\right),
 \end{equation}
-其中 $\mathbf{W}_{\mathrm{mix}}^{(s)}$ 为第 $s$ 个尺度的可学习投影矩阵。
+其中 ${W}_{{mix}}^{(s)}$ 为第 $s$ 个尺度的可学习投影矩阵。
 
 \textbf{特征聚合。} 完成 $k$ 个专家的特征提取后，根据路由权重对专家输出进行加权聚合：
 \begin{equation}
-\mathbf{z}_n=\sum_{j=1}^{k}G_j\!\left(\mathbf{x}_n\right)\mathbf{h}_n^{(e_j)},
+{z}_n=\sum_{j=1}^{k}G_j\!\left(X_n\right){h}_n^{(e_j)},
 \end{equation}
-其中 $e_j$ 为第 $j$ 个被选中专家的编号，$G_j(\mathbf{x}_n)$ 为对应权重。所有变量的输出被拼接为多尺度时序特征 $\mathbf{Z}\in\mathbb{R}^{N\times d}$。
+其中 $e_j$ 为第 $j$ 个被选中专家的编号，$G_j(X_n)$ 为对应权重。所有变量的输出被拼接为多尺度时序特征 $X_{ms}\in\mathbb{R}^{N\times d}$。
 
 \subsection{频域变量相关建模}
 
 变量之间的相关关系对多元时间序列预测具有重要作用。受到 DUET~\cite{duet} 的启发，本章使用可学习马氏矩阵在频域中捕捉变量相关关系，以降低不相关变量的不利影响。多元时间序列通常存在分布漂移~\cite{revin,adarnn}，而将序列变换到频域有助于缓解该问题~\cite{filternet,frets}。首先对第 $n$ 个变量计算实数快速傅里叶变换~\cite{rfft} 的幅值：
 \begin{equation}
-\mathbf{a}_n=\left|\mathrm{RFFT}\!\left(\mathbf{x}_n\right)\right|.
+{a}_n=\left|\mathrm{RFFT}\!\left(X_n\right)\right|.
 \end{equation}
 然后利用可学习马氏矩阵~\cite{hinton_2004_maha} 度量任意两个变量在频域中的距离：
 \begin{equation}
-D_{i,j}=\left(\mathbf{a}_i-\mathbf{a}_j\right)^{\top}\mathbf{U}\left(\mathbf{a}_i-\mathbf{a}_j\right),
+D_{i,j}=\left({a}_i-{a}_j\right)^{\top}{U}\left({a}_i-{a}_j\right),
 \end{equation}
-其中 $\mathbf{U}$ 为可学习半正定矩阵。距离越小，表示两个变量的频域模式越接近。将距离矩阵归一化后，得到变量相关性概率矩阵 $\mathbf{P}\in\mathbb{R}^{N\times N}$：
+其中 ${U}$ 为可学习半正定矩阵。距离越小，表示两个变量的频域模式越接近。将距离矩阵归一化后，得到变量相关性概率矩阵 ${P}\in\mathbb{R}^{N\times N}$：
 \begin{equation}
 P_{i,j}=
 \left\{
@@ -113,11 +114,12 @@ k_{i,j}=\frac{1}{D_{i,j}},
 \end{equation}
 其中 $\epsilon\in(0,1)$ 为缩放系数，$P_{i,j}$ 表示变量 $j$ 对变量 $i$ 有用的概率。
 
-\textbf{重参数化。} 为保留相关变量的作用并减少不相关变量的影响，本章在概率矩阵 $\mathbf{P}$ 上执行伯努利重采样，得到布尔相关性掩码 $\mathbf{M}_{\mathrm{cor}}\in\{0,1\}^{N\times N}$。为保证梯度能够传播，使用 Gumbel-Softmax 重参数化技术~\cite{jang2017categorical}。
+\textbf{重参数化。} 为保留相关变量的作用并减少不相关变量的影响，本章在概率矩阵 ${P}$ 上执行伯努利重采样，得到布尔相关性掩码 $\mathcal{M}_{{cor}}\in\{0,1\}^{N\times N}$。为保证梯度能够传播，使用 Gumbel-Softmax 重参数化技术~\cite{jang2017categorical}。
+
 
 \subsection{时间戳双向交叉注意力模块}
 
-时间戳双向交叉注意力模块用于显式捕捉历史区间与未来区间之间的双向依赖，并在训练过程中引入时间戳约束。该模块首先从多尺度视角探索历史与未来的双向时间依赖，随后融合多尺度时序特征 $\mathbf{Z}$、相关性掩码 $\mathbf{M}_{\mathrm{cor}}$、归一化时间序列和时间戳信息，生成最终预测并加入辅助损失。模块结构见图~\ref{fig:ch3_tdcam}。
+时间戳双向交叉注意力模块用于显式捕捉历史区间与未来区间之间的双向依赖，并在训练过程中引入时间戳约束。该模块首先从多尺度视角探索历史与未来的双向时间依赖，随后融合多尺度时序特征 $X_{ms}$、相关性掩码 $\mathcal{M}_{{cor}}$、归一化时间序列和时间戳信息，生成最终预测并加入辅助损失。模块结构见图~\ref{fig:ch3_tdcam}。
 
 \textbf{双向依赖建模。} 时间戳中的不同分量具有不同时间含义，因此本章分别对线性分量和周期分量进行编码。对年份 $y$，使用归一化线性编码：
 \begin{equation}
@@ -127,7 +129,7 @@ e_{\mathrm{year}}=\frac{y-y_{\min}}{y_{\max}-y_{\min}},
 \begin{equation}
 e_{v}=\left[\sin\!\left(\frac{2\pi v}{P}\right), \cos\!\left(\frac{2\pi v}{P}\right)\right].
 \end{equation}
-本章分别对月份、年内日、小时、分钟和星期进行编码，周期分别为 $12$、$366$、$24$、$60$ 和 $7$。历史时间戳和未来时间戳分别编码为 $\mathbf{E}^{\mathrm{hist}}$ 和 $\mathbf{E}^{\mathrm{fut}}$。
+本章分别对月份、年内日、小时、分钟和星期进行编码，周期分别为 $12$、$366$、$24$、$60$ 和 $7$。历史时间戳和未来时间戳分别编码为 ${E}^{{hist}}$ 和 ${E}^{{fut}}$。
 
 时间戳编码方法的完整定义如下。对于形如 $t=[\text{年},\text{月},\text{日},\text{时},\text{分}]$ 的时间戳，首先对年份项进行线性编码，并根据数据集中的最小年份和最大年份将其归一化到 $[0,1]$：
 \begin{equation}
@@ -141,32 +143,33 @@ t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\f
 
 为捕捉历史与未来时间戳之间的双向依赖，模块包含两个对称的交叉注意力分支，即前视层和回顾层。对第 $s$ 个尺度，前视层以历史时间戳嵌入作为查询、未来时间戳嵌入作为键和值，输出未来上下文特征；回顾层以未来时间戳嵌入作为查询、历史时间戳嵌入作为键和值，输出历史上下文特征。通过这种双向交叉注意力，时间依赖先通过时间戳交互被捕获，再被融入时间序列数据中，为预测提供额外上下文。
 
-\textbf{时序特征融合。} 在得到多尺度时序特征 $\mathbf{Z}$ 和相关性掩码 $\mathbf{M}_{\mathrm{cor}}$ 后，本章使用掩码注意力解码器融合时序特征。解码器以 $\mathbf{Z}$ 作为输入序列，以 $\mathbf{M}_{\mathrm{cor}}$ 作为注意力掩码，得到融合特征 $\mathbf{Z}^{\mathrm{fused}}$。随后通过线性投影将其对齐到未来区间：
+\textbf{时序特征融合。} 在得到多尺度时序特征 $X_{ms}$ 和相关性掩码 $\mathcal{M}_{{cor}}$ 后，本章使用掩码注意力解码器融合时序特征。解码器以 $X_{ms}$ 作为输入序列，以 $\mathcal{M}_{{cor}}$ 作为注意力掩码，得到融合特征 $X_{fused}$。随后通过线性投影将其对齐到未来区间：
 \begin{equation}
-\hat{\mathbf{X}}^{\mathrm{data}}=\mathbf{Z}^{\mathrm{fused}}\mathbf{W}_p,
+\hat{X}_{data}=X_{fused}{W}_p,
 \end{equation}
-其中 $\mathbf{W}_p$ 将特征维度映射为预测长度 $H$。
+其中 ${W}_p$ 将特征维度映射为预测长度 $H$。
 
 \textbf{时间戳约束融合。} 对每个尺度 $s$，将前视层得到的时间戳特征与归一化历史序列拼接，并使用轻量 MLP 生成约束权重：
 \begin{equation}
-\mathbf{w}^{(s)}=\mathrm{MLP}\!\left(\bar{\mathbf{X}}_f^{(s)}\oplus\mathbf{X}_{\mathrm{norm}}^{(s)}\right),
+{w}^{(s)}=\mathrm{MLP}\!\left(\bar{X}_f^{(s)}\oplus{X}_{\mathrm{norm}}^{(s)}\right),
 \end{equation}
 \begin{equation}
-\hat{\mathbf{Y}}^{(s)}=\mathbf{w}^{(s)}\odot\left(\hat{\mathbf{X}}^{\mathrm{data}}\oplus\hat{\mathbf{X}}_r^{(s)}\right),
+\hat{Y}^{(s)}={w}^{(s)}\odot\left(\hat{X}_{data}\oplus\hat{X}_r^{(s)}\right),
 \end{equation}
-其中 $\bar{\mathbf{X}}_f^{(s)}$ 为前视层特征，$\hat{\mathbf{X}}_r^{(s)}$ 为回顾层特征，$\oplus$ 表示拼接，$\odot$ 表示逐元素乘法。约束权重用于动态调整时间序列数据和未来时间戳信息对预测的贡献。
+其中 $\bar{X}_f^{(s)}$ 为前视层特征，$\hat{X}_r^{(s)}$ 为回顾层特征，$\oplus$ 表示拼接，$\odot$ 表示逐元素乘法。约束权重用于动态调整时间序列数据和未来时间戳信息对预测的贡献。
 
-\textbf{预测输出与辅助损失。} 在所有尺度上重复上述过程后，得到数据项预测 $\hat{\mathbf{X}}^{\mathrm{data}}$ 和多尺度时间戳特征 $\hat{\mathbf{X}}^{\mathrm{stamp}}$。对数据项进行逆实例归一化，得到最终预测：
+\textbf{预测输出与辅助损失。} 在所有尺度上重复上述过程后，得到数据项预测 $\hat{X}_{data}$ 和多尺度时间戳特征 $\hat{X}_{stamp}$。对数据项进行逆实例归一化，得到最终预测：
 \begin{equation}
-\hat{\mathbf{X}}=\mathrm{DeNorm}\!\left(\hat{\mathbf{X}}^{\mathrm{data}}\right).
+Y_\mathrm{pred}=\mathrm{DeNorm}\!\left(\hat{X}_{data}\right).
 \end{equation}
-主损失采用 L1 损失：
+主损失采用 L1 损失，其中$Y_{gt}$表示真值：
 \begin{equation}
-\mathcal{L}_{\mathrm{main}}=\mathrm{L1Loss}\!\left(\hat{\mathbf{X}},\mathbf{X}^{\mathrm{gt}}\right).
+\mathcal{L}_{\mathrm{main}}=\mathrm{L1Loss}\!\left(Y_\mathrm{pred},Y_\mathrm{gt}\right).
 \end{equation}
-为增强时间戳与时间序列之间的隐式相关性，对多尺度时间戳特征取平均，并通过轻量 Mapper 投影到隐空间，得到 $\mathbf{v}_{\mathrm{cons}}$。时间戳约束损失定义为
+
+为增强时间戳与时间序列之间的隐式相关性，对多尺度时间戳特征取平均，并通过轻量 Mapper 投影到隐空间，得到 $V_{cons}$。时间戳约束损失定义为
 \begin{equation}
-\mathcal{L}_{\mathrm{constraint}}=\epsilon_c\,\mathrm{mean}\!\left(\left|\mathbf{v}_{\mathrm{cons}}\right|\right),
+\mathcal{L}_{\mathrm{constraint}}=\epsilon_c\cdot\mathrm{mean}\!\left(\left|V_{cons}\right|\right),
 \end{equation}
 其中 $\epsilon_c$ 为约束强度系数。为平衡专家负载，另加入重要性损失 $\mathcal{L}_{\mathrm{importance}}$~\cite{moe}。最终总损失为
 \begin{equation}
@@ -176,6 +179,7 @@ t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\f
 % 图3.2 时间戳双向交叉注意力模块结构图（占位）
 \begin{figure}[htbp]
 \centering
+\includegraphics[width=\linewidth]{figure/bim3-tdcam.pdf}
 \caption{时间戳双向交叉注意力模块结构图}
 \label{fig:ch3_tdcam}
 \end{figure}
@@ -185,7 +189,7 @@ t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\f
 
 \subsection{实验设置}
 
-实验使用 10 个公开真实数据集，包括 Electricity、ETTh1、ETTh2、ETTm1、ETTm2、Exchange、ILI、Solar、Traffic 和 Weather。评价指标为均方误差和平均绝对误差。对 ILI 数据集使用预测长度 $H\in\{24,36,48,60\}$，其余数据集使用 $H\in\{96,192,336,720\}$。为减少回看窗口对结果的影响，ILI 使用窗口长度 $96$ 和 $104$，其余数据集使用 $96$、$336$ 和 $720$，每个基线报告其最佳窗口下的结果。对比方法包括 DUET、TimeLinear、PDF、FITS、Pathformer、TimeMixer、iTransformer、SOFTS、PatchTST、Crossformer、TimesNet 和 DLinear 等近期方法~\cite{duet,pdf,fits,pathformer,timemixer,itransformer,softs,patchtst,crossformer,timesnet,dlinear}。实验基于 PyTorch 实现~\cite{pytorch}，使用 ADAM 优化器~\cite{adam}，批量大小根据数据集在 $8$ 到 $256$ 之间调整。
+实验使用 10 个公开真实数据集，包括 Electricity、ETTh1、ETTh2、ETTm1、ETTm2、Exchange、ILI、Solar、Traffic 和 Weather。评价指标为均方误差和平均绝对误差。对 ILI 数据集使用预测长度 $H\in\{24,36,48,60\}$，其余数据集使用 $H\in\{96,192,336,720\}$。为减少回看窗口对结果的影响，ILI 使用窗口长度 $96$ 和 $104$，其余数据集使用 $96$、$336$ 和 $720$，每个基线报告其最佳窗口下的结果。对比方法包括 DUET~\cite{duet}、TimeLinear~\cite{timester}、PDF~\cite{pdf}、FITS~\cite{fits}、Pathformer~\cite{pathformer}、TimeMixer~\cite{timemixer}、iTransformer~\cite{itransformer}、SOFTS~\cite{softs}、PatchTST~\cite{patchtst}、Crossformer~\cite{crossformer}、TimesNet~\cite{timesnet} 和 DLinear~\cite{dlinear} 等近期方法。实验基于 PyTorch 实现~\cite{pytorch}，使用 ADAM 优化器~\cite{adam}，批量大小根据数据集在 $8$ 到 $256$ 之间调整。
 
 \begin{table*}[ht]
 \centering
@@ -196,9 +200,9 @@ t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\f
 \resizebox{\linewidth}{!}{
     \begin{tabular}{cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc}
     \toprule
-        \multicolumn{2}{c|}{Models} & \multicolumn{2}{c|}{Ours} & \multicolumn{2}{c|}{\makecell{DUET\\(2025)}} & \multicolumn{2}{c|}{\makecell{TimeLinear\\(2025)}} & \multicolumn{2}{c|}{\makecell{PDF\\(2024)}} & \multicolumn{2}{c|}{\makecell{FITS\\(2024)}} & \multicolumn{2}{c|}{\makecell{Pathformer\\(2024)}} & \multicolumn{2}{c|}{\makecell{TimeMixer\\(2024)}} & \multicolumn{2}{c|}{\makecell{iTransformer\\(2024)}} & \multicolumn{2}{c|}{\makecell{SOFTS\\(2024)}} & \multicolumn{2}{c|}{\makecell{PatchTST\\(2023)}} & \multicolumn{2}{c|}{\makecell{Crossformer\\(2023)}} & \multicolumn{2}{c|}{\makecell{TimesNet\\(2023)}} & \multicolumn{2}{c}{\makecell{DLinear\\(2023)}} \\
+        \multicolumn{2}{c|}{方法} & \multicolumn{2}{c|}{本章方法} & \multicolumn{2}{c|}{DUET} & \multicolumn{2}{c|}{TimeLinear} & \multicolumn{2}{c|}{PDF} & \multicolumn{2}{c|}{FITS} & \multicolumn{2}{c|}{Pathformer} & \multicolumn{2}{c|}{TimeMixer} & \multicolumn{2}{c|}{iTransformer} & \multicolumn{2}{c|}{SOFTS} & \multicolumn{2}{c|}{PatchTST} & \multicolumn{2}{c|}{Crossformer} & \multicolumn{2}{c|}{TimesNet} & \multicolumn{2}{c}{DLinear} \\
         \midrule
-        \multicolumn{2}{c|}{Metrics} & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae & mse & mae \\
+        \multicolumn{2}{c|}{指标} & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE \\
     \midrule    %% ECL
         \multirow{4}{*}{\rotatebox[origin=c]{90}{Electricity}} & 96 & \textcolor{red}{\textbf{0.126}} & \textcolor{red}{\textbf{0.217}} & 0.128&0.219 & 0.140&0.234 & \textcolor{blue}{\underline{0.127}}&0.221 & 0.153&0.259 & 0.134&0.222 & 0.129&0.225 & 0.152&0.248 & 0.145&0.235 & 0.143&0.247 & 0.132&\textcolor{blue}{\underline{0.218}} & 0.168&0.271 & 0.140&0.237 \\
         
@@ -280,7 +284,7 @@ t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\f
         
         & 720 & \textcolor{red}{\textbf{0.306}}&\textcolor{red}{\textbf{0.319}} & 0.318&\textcolor{blue}{\underline{0.327}} & 0.347&0.343 & 0.323&0.339 & 0.320&0.333 & 0.341&0.337 & 0.335&0.340 & 0.341&0.345 & 0.361&0.353 &\textcolor{blue}{\underline{0.313}}&0.333 & 0.376&0.382 & 0.359&0.354 & 0.332&0.374 \\
     \midrule
-        \multicolumn{2}{c|}{1st Count} & \textcolor{red}{\textbf{32}}&\textcolor{red}{\textbf{36}} & \textcolor{blue}{\underline{3}}&\textcolor{blue}{\underline{1}} & 1&\textcolor{blue}{\underline{1}} & \textcolor{blue}{\underline{3}}&0 & 1&\textcolor{blue}{\underline{1}} & 0&\textcolor{blue}{\underline{1}} & 0&0 & 0&0 & 0&0 & 0&0 & 0&0 & 0&0 & 0&0 \\
+        \multicolumn{2}{c|}{最佳结果} & \textcolor{red}{\textbf{32}}&\textcolor{red}{\textbf{36}} & \textcolor{blue}{\underline{3}}&\textcolor{blue}{\underline{1}} & 1&\textcolor{blue}{\underline{1}} & \textcolor{blue}{\underline{3}}&0 & 1&\textcolor{blue}{\underline{1}} & 0&\textcolor{blue}{\underline{1}} & 0&0 & 0&0 & 0&0 & 0&0 & 0&0 & 0&0 & 0&0 \\
     \bottomrule
     \end{tabular}
 }
@@ -309,8 +313,8 @@ t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\f
     \resizebox{\linewidth}{!}{
         \begin{tabular}{c|cc|cc|cc|cc|cc}
         \toprule
-            \textbf{Model} & \multicolumn{2}{c|}{\textbf{Ours}} & \multicolumn{2}{c|}{\textbf{w/o TDCAM}} & \multicolumn{2}{c|}{\textbf{w/o MSMoE}} & \multicolumn{2}{c|}{\textbf{Rand Matrix}} & \multicolumn{2}{c}{\textbf{w/o Matrix}} \\
-            Metrics & mse&mae & mse&mae & mse&mae & mse&mae & mse&mae \\
+            \textbf{方法} & \multicolumn{2}{c|}{\textbf{本章方法}} & \multicolumn{2}{c|}{\textbf{w/o TDCAM}} & \multicolumn{2}{c|}{\textbf{w/o MSMoE}} & \multicolumn{2}{c|}{\textbf{Rand Matrix}} & \multicolumn{2}{c}{\textbf{w/o Matrix}} \\
+            指标 & MSE&MAE & MSE&MAE & MSE&MAE & MSE&MAE & MSE&MAE \\
             \midrule
             Electricity & \textbf{0.156}&\textbf{0.246} & 0.157&0.254 & 0.158&0.247 & 0.159&0.250 & 0.160&0.252 \\
             ETTh1 & \textbf{0.401}&\textbf{0.421} & 0.404&0.428 & 0.409&0.432 & 0.408&0.427 & 0.409&0.428 \\
@@ -343,8 +347,8 @@ t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\f
     \resizebox{\linewidth}{!}{
         \begin{tabular}{c|cc|cc|cc|cc|cc}
             \toprule
-            \textbf{Experts Num} & \multicolumn{2}{c|}{\textbf{E=1}} & \multicolumn{2}{c|}{\textbf{E=2}} & \multicolumn{2}{c|}{\textbf{E=3}} & \multicolumn{2}{c|}{\textbf{E=4}} & \multicolumn{2}{c}{\textbf{E=5}} \\
-            Metrics & mse&mae & mse&mae & mse&mae & mse&mae & mse&mae \\
+            \textbf{专家数量(E)} & \multicolumn{2}{c|}{\textbf{E=1}} & \multicolumn{2}{c|}{\textbf{E=2}} & \multicolumn{2}{c|}{\textbf{E=3}} & \multicolumn{2}{c|}{\textbf{E=4}} & \multicolumn{2}{c}{\textbf{E=5}} \\
+            指标 & MSE&MAE & MSE&MAE & MSE&MAE & MSE&MAE & MSE&MAE \\
             \midrule
             ILI & 1.656&0.804 & \textbf{1.614}&\textbf{0.795} & 1.750&0.848 & 1.833&0.868 & 1.871&0.881 \\
             ETTh1 & 0.401&0.422 & 0.406&0.425 & 0.404&0.423 & \textbf{0.401}&\textbf{0.421} & 0.407&0.425 \\
