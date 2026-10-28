@@ -774,21 +774,21 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \subsubsection{专家路由模式的可视化}
 
-本节在 METR-LA 和 PEMS04 上可视化静动态双混合专家模块在高峰期和非高峰期时段的专家激活模式。具体地，本节收集推理阶段 SD-MoE 的专家激活统计，并观察路由行为在高峰期和非高峰期条件下的变化。将每日 $7{:}00$--$10{:}00$ 和 $16{:}00$--$19{:}00$ 视为高峰期时段，其余时间视为非高峰期时段。如图~\ref{fig:vis-routing-metr}和图~\ref{fig:vis-routing-pems04}所示，在两个数据集上，动态图混合专家和静态图混合专家的激活频率在高峰期与非高峰期时段均存在明显差异。这种不同的专家路由模式表明，SD-MoE 能够根据时间交通动态自适应选择不同专家，从而在不同交通条件下自适应捕捉时空模式。
+本节在 METR-LA 和 PEMS04 上可视化静动态双混合专家模块在高峰期和非高峰期时段的专家激活模式。具体地，本节收集推理阶段 SD-MoE 的专家激活统计，并观察路由行为在高峰期和非高峰期条件下的变化。将每日 $7{:}00$--$10{:}00$ 和 $16{:}00$--$19{:}00$ 视为高峰期时段，其余时间视为非高峰期时段。如图~\ref{fig:vis-routing-metr} 和图~\ref{fig:vis-routing-pems04} 所示，在两个数据集上，动态图混合专家和静态图混合专家的激活频率在高峰期与非高峰期时段均存在明显差异。这种不同的专家路由模式表明，SD-MoE 能够根据时间交通动态自适应选择不同专家，从而在不同交通条件下自适应捕捉时空模式。
 
 \begin{figure}[t!]
 \centering
     \centering
     \includegraphics[width=\linewidth]{figure/ch4-METR-LA-routing.png}
-    \label{fig:vis-routing-metr}
 \caption{在 METR-LA 数据集上的 SD-MoE 专家路由热力图：DyG-MoE（左）和 SG-MoE（右）中各专家的归一化选择频率。}
+\label{fig:vis-routing-metr}
 \end{figure}
 
 \begin{figure}[t!]
     \centering
     \includegraphics[width=\linewidth]{figure/ch4-PEMS04-routing.png}
-    \label{fig:vis-routing-pems04}
     \caption{在 PEMS04 数据集上的 SD-MoE 专家路由热力图：DyG-MoE（左）和 SG-MoE（右）中各专家的归一化选择频率。}
+\label{fig:vis-routing-pems04}
 \end{figure}
 
 \subsubsection{空间多尺度上下文的可视化}
