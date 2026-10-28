@@ -238,23 +238,6 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \section{实验结果与分析}
 
-\subsection{实验设置}
-
-实验使用 6 个常用交通数据集：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。评价指标为平均绝对误差（Mean Absolute Error，MAE）、平均绝对百分比误差（Mean Absolute Percentage Error，MAPE）和均方根误差（Root Mean Squared Error，RMSE）。为便于描述，记测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点在未来 $H$ 个时间步的预测结果 $Y_\mathrm{pred}\in\mathbb{R}^{N\times H}$ 和真实值 $Y\in\mathbb{R}^{N\times H}$。各指标定义如下：
-\begin{equation}
-\mathrm{MAE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
-\left|Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right|,
-\end{equation}
-\begin{equation}
-\mathrm{MAPE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
-\frac{\left|Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right|}{\left|Y[k,t,n]\right|}\times{100\%},
-\end{equation}
-\begin{equation}
-\mathrm{RMSE}=\sqrt{\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
-\left(Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right)^{2}}.
-\end{equation}
-输入历史长度和预测长度均设为 $12$，并报告第 $3$、$6$、$12$ 步及平均结果。对比方法包括 TESTAM~\cite{testam}、ST-MoE~\cite{st-moe}、STDN~\cite{stdn}、STPGNN~\cite{stpgnn}、DGCRN~\cite{dgcrn}、MegaCRN~\cite{megacrn}、AGCRN~\cite{agcrn}、MTGNN~\cite{mtgnn}、StemGNN~\cite{stemgnn}、Graph WaveNet~\cite{gwnet}、STGCN~\cite{stgcn}、DCRNN~\cite{dcrnn}、DUET~\cite{duet}、STID~\cite{stid} 和 ST-Norm~\cite{st-norm}等。实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}。
-
 \begin{table}[t!]
     \centering
     \caption{数据集统计信息。}
@@ -277,7 +260,24 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     \vspace{-1.em}
 \end{table}
 
-\begin{table*}[ht]
+\subsection{实验设置}
+
+实验使用 6 个常用交通数据集：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。评价指标为平均绝对误差（Mean Absolute Error，MAE）、平均绝对百分比误差（Mean Absolute Percentage Error，MAPE）和均方根误差（Root Mean Squared Error，RMSE）。为便于描述，记测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点在未来 $H$ 个时间步的预测结果 $Y_\mathrm{pred}\in\mathbb{R}^{N\times H}$ 和真实值 $Y\in\mathbb{R}^{N\times H}$。各指标定义如下：
+\begin{equation}
+\mathrm{MAE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
+\left|Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right|,
+\end{equation}
+\begin{equation}
+\mathrm{MAPE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
+\frac{\left|Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right|}{\left|Y[k,t,n]\right|}\times{100\%},
+\end{equation}
+\begin{equation}
+\mathrm{RMSE}=\sqrt{\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
+\left(Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right)^{2}}.
+\end{equation}
+输入历史长度和预测长度均设为 $12$，并报告第 $3$、$6$、$12$ 步及平均结果。对比方法包括 TESTAM~\cite{testam}、ST-MoE~\cite{st-moe}、STDN~\cite{stdn}、STPGNN~\cite{stpgnn}、DGCRN~\cite{dgcrn}、MegaCRN~\cite{megacrn}、AGCRN~\cite{agcrn}、MTGNN~\cite{mtgnn}、StemGNN~\cite{stemgnn}、Graph WaveNet~\cite{gwnet}、STGCN~\cite{stgcn}、DCRNN~\cite{dcrnn}、DUET~\cite{duet}、STID~\cite{stid} 和 ST-Norm~\cite{st-norm}等。实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}。
+
+\begin{table}[ht!]
     \centering
     \caption{交通预测主结果，涵盖 METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08 数据集；最优结果加粗红色，次优结果下划线蓝色。}
     \label{tab:main-res}
@@ -377,7 +377,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 }
 \vspace{-1.em}
 
-\end{table*}
+\end{table}
 
 \subsection{定量结果分析}
 
@@ -389,13 +389,8 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 此外，本章方法在 METR-LA 和 PEMS03 上的 MAPE 结果相对较弱。这一现象可能源于 MAPE 对较小真值较为敏感：PEMS03 和 METR-LA 训练集第 20 百分位数分别为 $49.0$ 和 $54.6$，明显小于 PEMS-BAY、PEMS04、PEMS07 和 PEMS08 的 $61.1$、$65.0$、$115.0$ 和 $93.0$。较小数值分布会放大 MAPE，因此尽管 MAE 和 RMSE 具有竞争力，MAPE 仍可能出现偏高。
 
-\subsection{消融实验}
 
-为验证各模块的作用，本章分别进行以下消融实验：\textit{w/o SMS-MoE} 表示移除空间多尺度混合专家模块，\textit{w/o SG-MoE} 表示移除静态图混合专家，\textit{w/o DyG-MoE} 表示移除动态图混合专家，\textit{w/o $\mathcal{L}_{moe}$} 表示移除负载均衡损失，\textit{w/o Sk-Nodes} 表示移除骨架节点。消融结果如表~\ref{tab:ablation} 所示。
-
-从结果中可以得到五点观察。第一，移除空间多尺度混合专家模块后，所有数据集的性能均下降；在小规模图，例如 METR-LA 上下降相对较小，而在节点较多的大规模图，例如 PEMS07 和 PEMS-BAY 上下降更为明显，说明尺度自适应多尺度建模对大规模传感网络尤为重要。第二，移除静态图混合专家后，在边数较少的数据集，例如 PEMS04 和 PEMS08 上性能下降较明显；这可能是因为当路网连通性较稀疏时，显式拓扑结构更适合由静态图卷积专家利用，而动态图专家通过注意力学习隐式图可能引入建模偏差。第三，移除动态图混合专家后，在边数较多、动态交互较强的数据集上性能下降较明显，且下降幅度通常大于移除静态图混合专家；这说明节点级全注意力动态专家能够补充静态拓扑所不能刻画的密集、时变跨节点交互。第四，移除负载均衡损失会在多数数据集上造成一致的性能下降，说明缺少该损失时专家利用率不均衡、路由可能退化。第五，移除骨架节点会在所有数据集和指标上造成轻微但一致的下降，说明骨架节点作为可学习全局原型，主要起到轻量全局协调作用，而非模型容量的主要来源。
-
-\begin{table}[t]
+\begin{table}[t!]
     \centering
     \caption{消融实验，预测窗口内所有时间步结果取平均，最优结果加粗。}
     \label{tab:ablation}
@@ -440,10 +435,15 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     }
     \vspace{-1em}
 \end{table}
+\subsection{消融实验}
+
+为验证各模块的作用，本章分别进行以下消融实验：\textit{w/o SMS-MoE} 表示移除空间多尺度混合专家模块，\textit{w/o SG-MoE} 表示移除静态图混合专家，\textit{w/o DyG-MoE} 表示移除动态图混合专家，\textit{w/o $\mathcal{L}_{moe}$} 表示移除负载均衡损失，\textit{w/o Sk-Nodes} 表示移除骨架节点。消融结果如表~\ref{tab:ablation} 所示。
+
+从结果中可以得到五点观察。第一，移除空间多尺度混合专家模块后，所有数据集的性能均下降；在小规模图，例如 METR-LA 上下降相对较小，而在节点较多的大规模图，例如 PEMS07 和 PEMS-BAY 上下降更为明显，说明尺度自适应多尺度建模对大规模传感网络尤为重要。第二，移除静态图混合专家后，在边数较少的数据集，例如 PEMS04 和 PEMS08 上性能下降较明显；这可能是因为当路网连通性较稀疏时，显式拓扑结构更适合由静态图卷积专家利用，而动态图专家通过注意力学习隐式图可能引入建模偏差。第三，移除动态图混合专家后，在边数较多、动态交互较强的数据集上性能下降较明显，且下降幅度通常大于移除静态图混合专家；这说明节点级全注意力动态专家能够补充静态拓扑所不能刻画的密集、时变跨节点交互。第四，移除负载均衡损失会在多数数据集上造成一致的性能下降，说明缺少该损失时专家利用率不均衡、路由可能退化。第五，移除骨架节点会在所有数据集和指标上造成轻微但一致的下降，说明骨架节点作为可学习全局原型，主要起到轻量全局协调作用，而非模型容量的主要来源。
 
 \subsection{参数与模块分析}
 
-\begin{table*}[ht]
+\begin{table}[t!]
     \centering
     \caption{不同多尺度混合策略的对比，所有时间步结果取平均，最优结果加粗。}
     \label{tab:mixing-strategy}
@@ -469,9 +469,9 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     \end{tabular}
     }
     \vspace{-1em}
-\end{table*}
+\end{table}
 
-\begin{table}[t]
+\begin{table}[t!]
     \centering
     \caption{不同尺度因子 $F$ 下的预测精度，所有时间步结果取平均；$S=0$ 表示不池化变体，最优结果加粗。}
     \label{tab:parasen-scalingFactor}
@@ -521,7 +521,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     
 \end{table}
 
-\begin{table}[t]
+\begin{table}[t!]
     \centering
     \caption{不同专家数量 $E$ 下的预测精度，$E$ 为 DyG-MoE 与 SG-MoE 的专家数，所有时间步结果取平均，最优结果加粗。}
     \label{tab:parasen-expertNum}
@@ -572,12 +572,12 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     % \vspace{-1.em}
 \end{table}
 
-\begin{table}[t]
+\begin{table}[t!]
     \centering
-    \caption{SD-MoE 中不同激活专家数量 $k$ 下的预测精度，所有时间步结果取平均，最优结果加粗。}
+    \caption{左：SD-MoE 中不同激活专家数量 $k$ 下的预测精度，所有时间步结果取平均，最优结果加粗。右：不同 $k$ 下的效率分析。Mem.(GB)、T.S. 和 I.S. 分别表示 GPU 显存、训练速度和推理速度。}
     \label{tab:parasen-topK}
 
-    % \resizebox{\linewidth}{!}{
+    \resizebox{0.49\linewidth}{!}{
         \begin{tabular}{cc|cccc}
              \toprule
              \multicolumn{2}{c|}{\textbf{Top-$k$}} & \textbf{$k=1$} & \textbf{$k=2$} & \textbf{$k=3$} & \textbf{$k=4$} \\
@@ -599,37 +599,60 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
              \bottomrule
         \end{tabular}
-    % }
-\end{table}
-
-\begin{table}[t]
-    \centering
-    \caption{不同 $k$ 下的效率分析。Mem.(GB)、T.S. 和 I.S. 分别表示 GPU 显存、训练速度和推理速度。}
-    \label{tab:efficiency}
+    }
+    \hfill
+    \resizebox{0.49\linewidth}{!}{
     \begin{tabular}{cc|cccc}
-    \toprule
-        \multicolumn{2}{c|}{\textbf{数据集}} & \textbf{$k=1$} & \textbf{$k=2$} & \textbf{$k=3$} & \textbf{$k=4$} \\
-    \midrule
-        \multirow{3}{*}{{METR-LA}} 
-        & Mem.(GB) & 1.47 & 1.48 & 1.48 & 1.50 \\
-        & T.S.(it/s)   & 12.65 & 12.27 & 11.91 & 12.35 \\
-        & I.S.(it/s)   & 50.35 & 43.70 & 37.88 & 37.45 \\
-    \midrule
-        \multirow{3}{*}{{PEMS-BAY}} 
-        & Mem.(GB) & 2.85 & 2.85 & 2.98 & 3.02 \\
-        & T.S.(it/s)   & 11.03 & 11.00 & 10.46 & 10.84 \\
-        & I.S.(it/s)   & 39.33 & 33.77 & 32.49 & 32.19 \\
-    \midrule
-        \multirow{3}{*}{{PEMS04}} 
-        & Mem.(GB) & 1.53 & 1.57 & 1.61 & 1.70 \\
-        & T.S.(it/s)   & 10.72 & 11.21 & 10.95 & 11.38 \\
-        & I.S.(it/s)   & 37.05 & 35.53 & 33.95 & 32.92 \\
-    \bottomrule
+        \toprule
+            \multicolumn{2}{c|}{\textbf{数据集}} & \textbf{$k=1$} & \textbf{$k=2$} & \textbf{$k=3$} & \textbf{$k=4$} \\
+        \midrule
+            \multirow{3}{*}{{METR-LA}} 
+            & Mem.(GB) & 1.47 & 1.48 & 1.48 & 1.50 \\
+            & T.S.(it/s)   & 12.65 & 12.27 & 11.91 & 12.35 \\
+            & I.S.(it/s)   & 50.35 & 43.70 & 37.88 & 37.45 \\
+        \midrule
+            \multirow{3}{*}{{PEMS-BAY}} 
+            & Mem.(GB) & 2.85 & 2.85 & 2.98 & 3.02 \\
+            & T.S.(it/s)   & 11.03 & 11.00 & 10.46 & 10.84 \\
+            & I.S.(it/s)   & 39.33 & 33.77 & 32.49 & 32.19 \\
+        \midrule
+            \multirow{3}{*}{{PEMS04}} 
+            & Mem.(GB) & 1.53 & 1.57 & 1.61 & 1.70 \\
+            & T.S.(it/s)   & 10.72 & 11.21 & 10.95 & 11.38 \\
+            & I.S.(it/s)   & 37.05 & 35.53 & 33.95 & 32.92 \\
+        \bottomrule
     \end{tabular}
-    % \vspace{-1.em}
+    }
 \end{table}
 
-\begin{table*}[t!]
+% \begin{table}[t!]
+%     \centering
+%     \caption{不同 $k$ 下的效率分析。Mem.(GB)、T.S. 和 I.S. 分别表示 GPU 显存、训练速度和推理速度。}
+%     \label{tab:efficiency}
+%     \begin{tabular}{cc|cccc}
+%     \toprule
+%         \multicolumn{2}{c|}{\textbf{数据集}} & \textbf{$k=1$} & \textbf{$k=2$} & \textbf{$k=3$} & \textbf{$k=4$} \\
+%     \midrule
+%         \multirow{3}{*}{{METR-LA}} 
+%         & Mem.(GB) & 1.47 & 1.48 & 1.48 & 1.50 \\
+%         & T.S.(it/s)   & 12.65 & 12.27 & 11.91 & 12.35 \\
+%         & I.S.(it/s)   & 50.35 & 43.70 & 37.88 & 37.45 \\
+%     \midrule
+%         \multirow{3}{*}{{PEMS-BAY}} 
+%         & Mem.(GB) & 2.85 & 2.85 & 2.98 & 3.02 \\
+%         & T.S.(it/s)   & 11.03 & 11.00 & 10.46 & 10.84 \\
+%         & I.S.(it/s)   & 39.33 & 33.77 & 32.49 & 32.19 \\
+%     \midrule
+%         \multirow{3}{*}{{PEMS04}} 
+%         & Mem.(GB) & 1.53 & 1.57 & 1.61 & 1.70 \\
+%         & T.S.(it/s)   & 10.72 & 11.21 & 10.95 & 11.38 \\
+%         & I.S.(it/s)   & 37.05 & 35.53 & 33.95 & 32.92 \\
+%     \bottomrule
+%     \end{tabular}
+%     % \vspace{-1.em}
+% \end{table}
+
+\begin{table}[t!]
   \centering
   \caption{长时预测结果，评估第 12、24、48、72 步及所有时间步平均值；最优结果加粗，次优结果下划线。}
   
@@ -677,17 +700,17 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     \end{tabular}%
   }
   % \vspace{-1em}
-\end{table*}
+\end{table}
 
 \textbf{不同多尺度混合策略的对比。} 为了融合尺度专家提取的多尺度空间特征，本章采用自顶向下混合策略。其直觉是，粗尺度表示捕捉更宏观的全局交通模式，可以作为细化细尺度表示的先验。因此，将信息从粗尺度传播到细尺度，有助于在保留全局上下文的同时增强局部细节。为验证该设计，本章将自顶向下混合替换为自底向上混合和简单平均。自底向上混合从细尺度向粗尺度聚合特征，可能在全局上下文形成前压缩或平滑细粒度信号；简单平均则对所有尺度一视同仁，忽略尺度间的层次关系。如表~\ref{tab:mixing-strategy} 所示，自底向上和平均策略均导致性能下降，说明自顶向下混合更适合多尺度空间特征融合。
 
 \textbf{尺度因子的影响。} 本章通过 $S=\lfloor \log_F(N)\rfloor$ 次下采样构造子图，$F$ 为尺度因子。表~\ref{tab:parasen-scalingFactor} 给出不同 $F$ 下的预测精度。当 $S=0$，即多尺度建模退化为仅在原始图上进行单尺度特征提取时，所有数据集上的性能均最弱，说明空间多尺度建模对处理空间非平稳性有效。当 $F\ge 2$ 时，模型一致优于单尺度设置，最佳结果通常出现在 $F=4$ 或 $F=6$。可能的原因是，$F=2$ 时相邻子图之间的区分度不足，尺度特征过于相似；适中 $F$ 能产生区分更明显的尺度，包括原始尺度，从而有利于多尺度特征提取。当 $F=64$ 时，模型对所有数据集只进行一次下采样，退化为两尺度自适应提取器，虽然仍优于单尺度变体，但整体不如适中尺度因子。
 
-\textbf{专家数量的影响。} 本章通过 SG-MoE 和 DyG-MoE 建模时空模式，二者使用相同数量的专家 $E$。表~\ref{tab:parasen-expertNum} 给出不同 $E$ 下的结果。所有数据集中，$E=1$ 时性能最低，说明单个专家不足以建模复杂的交通时空依赖。不同数据集的最优专家数略有不同，但主要集中在 $E=2$ 和 $E=4$。一方面，不同数据集的时间分布和空间连通性存在差异，因此最优专家数不必相同；另一方面，增加专家数可提升模型容量，但也可能使选择性激活更难路由。过多专家，例如 $E=5$，在多数数据集上反而导致性能下降。
+\textbf{专家数量的影响。} 本章通过 SG-MoE 和 DyG-MoE 建模时空模式，二者使用相同数量的专家 $E$。表~\ref{tab:parasen-expertNum} 给出不同 $E$ 下的结果。结果表明：第一，所有数据集中 $E=1$ 时性能均最低，说明单个专家不足以建模交通数据中复杂的时空依赖；第二，不同数据集的最优专家数略有不同，但最佳选择主要集中在 $E=2$ 和 $E=4$。一方面，不同数据集在时间分布和空间连通性上存在较大差异，因此最优专家数不必相同；多样化的时空模式需要不同数量的专家进行灵活建模。另一方面，增加专家数能够提升模型容量，有助于捕捉更复杂、更多样的时空模式；第三，过多的专家，例如 $E=5$，可能使选择性激活更难有效路由，导致专家分配不理想，并在多数数据集上造成性能下降。
 
-\textbf{Top-$k$ 的影响。} SD-MoE 采用稀疏 Top-$k$ 路由。表~\ref{tab:parasen-topK} 和表~\ref{tab:efficiency} 显示，$k=1$ 时性能受限，单个激活专家不足以覆盖多样的时空模式；$k\ge 3$ 时性能进一步下降且计算开销增大；$k=2$ 能在性能和计算开销之间取得较好平衡，因此本章默认采用 $k=2$。
+\textbf{Top-$k$ 的影响。} SD-MoE 采用 Top-$k$ 稀疏激活混合专家路由机制。本节在固定专家数量下评估不同 $k$ 值的影响，并结合表~\ref{tab:parasen-topK} 分析性能与计算开销的权衡。结果表明，$k=1$ 时性能较为受限，因为单个激活专家不足以覆盖多样的时空模式；当 $k\ge 3$ 时，性能进一步下降，同时计算开销增大；$k=2$ 能够在预测性能和计算开销之间取得较好平衡，在保持较强性能的同时控制显存和训练/推理开销。因此，本章默认采用 $k=2$，这也与稀疏混合专家设计中的常见设置一致。
 
-\textbf{长时预测。} 表~\ref{tab:long_term} 给出在 $12$、$24$、$48$、$72$ 步上的长时预测结果。整体来看，本章方法在多数长时预测设置下保持较优或接近最优的 MAE、MAPE 和 RMSE，说明空间多尺度建模与静动态双混合专家结构对较长预测范围仍具有较好适应性。
+\textbf{长时预测。} 为评估模型在长时预测中的能力，本章将预测长度扩展到 $72$ 步，输入长度保持 $12$，并在第 $12$、$24$、$48$、$72$ 步及整体平均值上评估性能。如表~\ref{tab:long_term} 所示，本章方法在所有预测长度下均优于代表性基线。值得注意的是，随着预测长度增加，尤其是第 $48$ 和 $72$ 步，误差累积会使预测变得更加困难，但本章方法仍保持较稳健的性能。这说明模型在输入历史有限的情况下，仍具有较好的长时泛化能力。这种鲁棒性可归因于自适应建模框架：它能够捕捉多尺度空间依赖和异质时间模式，从而在较长预测范围内稳定预测结果。
 
 
 
@@ -701,7 +724,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \textbf{资源开销。} 本节在 6 个数据集上评估本章方法与基线的资源占用。所有实验使用历史长度和预测长度均为 $12$；为保证公平比较，训练批量大小设为 $16$，推理批量大小设为 $64$。训练和推理的详细资源开销见表~\ref{tab:resource-consume}。结果表明，尽管本章方法比大多数基线包含更多可学习参数，但在 6 个数据集中的 5 个上 GPU 显存占用最低；即使在参数量最大的 PEMS08 上，其显存占用也远低于较重基线。这种效率来自稀疏激活的混合专家框架，使模型容量增加时不会带来等比例的显存开销。
 
-\begin{table}[t]
+\begin{table}[t!]
     \centering
     \caption{本章方法与基线在训练和推理中的计算开销。Mem.(GB)、T.S. 和 I.S. 分别表示 GPU 显存、训练速度和推理速度；OOM 表示在 24 GB GPU 上显存不足。}
     % \vspace{1em}
