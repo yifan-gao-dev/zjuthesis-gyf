@@ -5,20 +5,22 @@
 
 \section{概述}
 
-第3章主要面向缺乏显式空间图结构的一般多元时间序列预测问题，从时间多尺度和通道级混合专家的角度缓解时间非平稳与变量分布差异。本章进一步研究具有显式空间图结构的交通预测问题。交通传感器节点之间通常由道路连接构成静态空间结构，同时交通状态又随时间演化产生动态交互；此外，不同空间尺度下的交通模式也存在明显差异。现实交通数据常表现出空间非平稳性，即观测分布会随空间尺度变化而发生漂移；同时，同一路网中也存在由高峰、平峰等时间状态引起的时间非平稳性。因此，仅使用单一空间尺度或单一时间建模方式，难以同时刻画局部路段和区域路网的异质模式。
+第3章主要面向缺乏显式空间图结构的一般多元时间序列预测问题，从时间多尺度和通道级混合专家的角度缓解时间非平稳与变量分布差异。在此基础上，本章进一步将研究对象扩展至具有显式空间图结构的交通预测问题。与一般多元时间序列预测相比，交通预测中的观测节点不再只是相互独立的变量，而是与真实路网中的传感器或路段一一对应，节点之间通过道路连接形成显式的空间邻接关系。因此，交通预测不仅要建模时间维度的变化，还要利用空间拓扑先验刻画节点之间的相互作用。
 
-针对上述问题，本章构建一个融合自适应空间多尺度建模与静动态双混合专家的交通预测框架。与依赖距离、聚类或节点相似性等先验知识构造固定尺度的方法不同，本章通过数据驱动的图池化自适应构造多个空间尺度，并利用尺度专家和自适应融合提取尺度特异性特征。同时，本章使用稀疏激活的静态图专家和动态图专家分别建模显式拓扑结构与隐式时空依赖，从而在保留路网结构先验的基础上，补充由注意力机制发现的动态跨节点交互。
+现实交通系统通常同时受到空间非平稳性和时间非平稳性的影响。在空间维度上，交通模式会随空间尺度发生变化：相邻路段之间的局部拥堵传播、区域之间的宏观流量转移以及城市尺度的整体需求变化，往往需要不同粒度的图结构才能分别刻画。在时间维度上，同一路网在高峰、平峰和夜间等不同时段会呈现明显不同的交通状态；即使在同一时段内，由道路连接决定的静态依赖与由交通状态演化产生的动态交互也同时存在。上述因素使得单一尺度、单一图结构或单一时间建模方式难以充分表达交通时空数据的异质性。
+
+现有交通预测方法虽然已经广泛使用图神经网络和多尺度建模，但仍存在两方面不足。一方面，空间多尺度方法大多依赖距离、聚类或节点相似性等先验知识构造尺度，且通常只考虑原图和一个额外子图两个尺度，难以根据当前交通状态自适应确定尺度数量和融合方式。另一方面，静态图方法和动态图方法通常分别建模静态拓扑与动态依赖，或采用全激活、硬选择的混合专家结构，难以在同一时间状态下灵活协同两类信息。针对这些问题，本章构建一个融合自适应空间多尺度建模与静动态双混合专家的交通预测框架：通过数据驱动的图池化自适应构造多个空间尺度，利用尺度专家和自适应融合提取尺度特异性特征；同时使用稀疏激活的静态图专家和动态图专家分别建模显式拓扑结构与隐式时空依赖，从而在保留路网结构先验的基础上，补充由注意力机制发现的动态跨节点交互。
 
 \section{多尺度空间自适应建模与时空静动态混合专家的交通预测框架}
 
 \subsection{问题定义与总体框架}
 
-沿用第2章记号，将交通路网表示为图 $\mathcal{G}=(\mathcal{V},\mathcal{E},\mathbf{A})$，其中 $\mathcal{V}$ 为节点集合，$N=|\mathcal{V}|$ 为传感器数，$\mathbf{A}\in\mathbb{R}^{N\times N}$ 为邻接矩阵。设历史观测为 $\mathbf{X}\in\mathbb{R}^{N\times T}$，其中 $T$ 为历史长度；预测目标为未来 $H$ 个时刻的节点取值 $\hat{\mathbf{Y}}\in\mathbb{R}^{N\times H}$。模型的目标是学习映射
+沿用第2章记号，将交通路网表示为图 $\mathcal{G}=(\mathcal{V},\mathcal{E},\mathcal{A})$，其中 $\mathcal{V}$ 为节点集合，$N=|\mathcal{V}|$ 为传感器数，$\mathcal{A}\in\mathbb{R}^{N\times N}$ 为邻接矩阵。设历史观测为 $X\in\mathbb{R}^{N\times T}$，其中 $T$ 为历史长度；预测目标为未来 $H$ 个时刻的节点取值 $\hat{Y}\in\mathbb{R}^{N\times H}$。模型的目标是学习映射
 \begin{equation}
-f_{\theta}:\left(\mathbf{X},\mathcal{G}\right)\mapsto \hat{\mathbf{Y}}.
+f_{\theta}:\left(X,\mathcal{G}\right)\mapsto \hat{Y}.
 \end{equation}
 
-整体框架首先将历史观测与时刻信息编码为节点嵌入，然后并行使用两个模块：空间多尺度混合专家模块通过图池化构造多个空间尺度的子图，并利用尺度专家和自适应融合提取空间多尺度特征；静态—动态双混合专家模块分别使用静态图专家和动态图专家建模显式拓扑结构与隐式时空依赖。最后，门控融合模块将两类特征融合并生成预测。总体流程见图~\ref{fig:ch4_framework}。
+整体框架如图~\ref{fig:ch4_framework} 所示。首先将历史观测与时刻信息编码为原始图节点嵌入；随后并行使用两个模块：空间多尺度混合专家模块通过图池化构造多个空间尺度的子图，利用尺度专家提取尺度特异性特征，并通过尺度自适应融合恢复到原始节点空间；静态—动态双混合专家模块分别使用静态图专家和动态图专家建模显式拓扑结构与隐式时空依赖。最后，门控融合模块将空间多尺度特征与静动态时空特征融合，并通过多层感知机和预测层输出未来交通数据。
 
 % 图4.1 本章方法总体框架图（占位）
 
@@ -31,137 +33,227 @@ f_{\theta}:\left(\mathbf{X},\mathcal{G}\right)\mapsto \hat{\mathbf{Y}}.
 
 \subsection{编码器}
 
-为了增强交通数据的表达能力，编码器首先将历史观测与时刻信息进行拼接，并通过线性层映射到隐空间。设历史观测为 $\mathbf{X}\in\mathbb{R}^{N\times T}$，日内时间编码为 $\mathbf{X}^{\mathrm{tid}}\in\mathbb{R}^{T}$，周内日编码为 $\mathbf{X}^{\mathrm{diw}}\in\mathbb{R}^{T}$，则节点嵌入为
+为了增强交通数据的表达能力，编码器首先将历史数据编码为原始图节点嵌入。具体地，将历史观测 $X\in\mathbb{R}^{N\times T}$ 与时刻信息拼接，包括日内时间编码 $X_{tid}\in\mathbb{R}^{T}$ 和周内日编码 $X_{diw}\in\mathbb{R}^{T}$，并通过线性层映射到隐空间：
 \begin{equation}
-\mathbf{X}_{\mathrm{enc}}=\mathrm{Linear}\!\left(\left[\mathbf{X};\mathbf{X}^{\mathrm{tid}};\mathbf{X}^{\mathrm{diw}}\right]\right)\in\mathbb{R}^{N\times E},
+X_{enc}=\mathrm{Linear}\!\left(\mathrm{concat}\!\left(X,X_{tid},X_{diw}\right)\right),
 \end{equation}
-其中 $E$ 为隐层维度。
+其中 $X_{enc}\in\mathbb{R}^{N\times E}$ 表示编码后的节点嵌入，$T$ 为历史时间步数，$N$ 为传感器数，$E$ 为隐层维度。
 
 \subsection{数据驱动的空间多尺度图构造}
 
-为从数据中自适应地构造多个空间尺度，本章使用图池化对原始图逐步粗化。对第 $i$ 个池化层，轻量图卷积为每个节点生成重要性得分：
-\begin{equation}
-\mathbf{s}_i=\mathbf{W}_2\,\mathrm{ReLU}\!\left(\mathbf{W}_1 \mathbf{A}_{\mathrm{norm}}\mathbf{X}_{\mathrm{enc}}^{(0)}\right),
-\end{equation}
-其中 $\mathbf{A}_{\mathrm{norm}}$ 为归一化邻接矩阵，$\mathbf{X}_{\mathrm{enc}}^{(0)}$ 为原始图节点嵌入。随后选择得分最高的 $N_i$ 个节点：
-\begin{equation}
-\mathrm{idx}_i=\mathrm{TopK}\!\left(\mathbf{s}_i,N_i\right),
-\qquad
-N_i=\left\lfloor \frac{N}{F^{i}}\right\rfloor,
-\end{equation}
-其中 $F$ 为尺度缩放因子。第 $i$ 个尺度上的节点特征和邻接矩阵由保留节点在原图中直接构造：
-\begin{equation}
-\mathbf{X}_{\mathrm{enc}}^{(i)}=\left(\mathbf{A}_{\mathrm{norm}}\mathbf{X}_{\mathrm{enc}}^{(0)}\right)_{\mathrm{idx}_i},
-\qquad
-\mathbf{A}^{(i)}=\mathbf{A}_{\mathrm{idx}_i,\mathrm{idx}_i}.
-\end{equation}
-该过程重复 $S=\lfloor \log_F N\rfloor$ 次，得到由细到粗的多尺度图集合 $\{\mathcal{G}^{(0)},\ldots,\mathcal{G}^{(S)}\}$。
+为了捕捉交通数据的空间异质性并支持尺度自适应建模，本章提出空间多尺度混合专家模块。该模块由三个部分组成：图池化模块反复对原始交通图进行下采样，构造多个空间尺度上的子图；每个尺度对应一个尺度专家，用于提取该尺度下的空间特征；尺度自适应融合模块将这些特征映射回原始节点空间并进行融合。
 
-\subsection{空间多尺度混合专家模块}
+\textbf{子图构造。} 编码完成后，得到原始图节点嵌入 $X_{enc}^0\in\mathbb{R}^{N\times E}$ 和原始图 $\mathcal{G}_0$。为构造 $S$ 个空间尺度上的子图，使用包含 $S$ 个池化层的图池化模块。对第 $i$ 个池化层，轻量图卷积为原始图 $\mathcal{G}_0$ 中的每个节点生成得分~\cite{sagpool}，并选择得分最高的 $\lfloor N/F^{i}\rfloor$ 个节点构造子图 $\mathcal{G}_i$，其中 $F$ 为尺度缩放因子，$N_i=\lfloor N/F^{i}\rfloor$。为保留结构信息，$\mathcal{G}_i$ 直接从原始图构造，而不是从中间池化图构造：
+\begin{equation}
+scores_i=\mathrm{GCN}\!\left(X_{enc}^0,\mathcal{A}\right),
+\qquad
+idx_i=\mathrm{TopK}\!\left(scores_i,N_i\right),
+\end{equation}
+\begin{equation}
+X_{enc}^i=\left(\mathcal{A}_{norm}X_{enc}^0\right)_{idx_i},
+\qquad
+\mathcal{A}_i=\mathcal{A}_{idx_i,idx_i},
+\end{equation}
+其中 $X_{enc}^i\in\mathbb{R}^{N_i\times E}$ 为池化后的节点嵌入，$\mathcal{A}_i\in\mathbb{R}^{N_i\times N_i}$ 为子图邻接矩阵，$idx_i$ 记录保留节点在原始图中的索引。给定 $F$，该过程得到 $S=\lfloor\log_F N\rfloor$ 个子图。图池化流程如算法~\ref{alg:ch4_graph_pooling} 所示。
 
-对第 $i$ 个尺度的图 $\mathcal{G}^{(i)}$，尺度专家使用多层图卷积提取空间特征。第 $l$ 层图卷积为
-\begin{equation}
-\mathbf{Z}^{(i,l)}=\mathrm{ReLU}\!\left(\hat{\mathbf{A}}^{(i)}\mathbf{Z}^{(i,l-1)}\mathbf{W}^{(i,l)}+\mathbf{b}^{(i,l)}\right),
-\end{equation}
-其中 $\hat{\mathbf{A}}^{(i)}=\left(\mathbf{D}^{(i)}\right)^{-\frac12}\mathbf{A}^{(i)}\left(\mathbf{D}^{(i)}\right)^{-\frac12}$，$\mathbf{D}^{(i)}$ 为度矩阵。为了引入不依赖具体输入、且在不同尺度上相对稳定的结构先验，本章进一步设置一组可学习骨架节点嵌入 $\mathbf{E}_{\mathrm{sk}}$，并通过交叉注意力与图卷积输出交互：
-\begin{equation}
-\mathbf{Q}^{(i)}=\mathbf{Z}^{(i,L-1)}\mathbf{W}^{(i,Q)},
-\qquad
-\mathbf{E}_{\mathrm{sk}}^{(i)}=\mathrm{Softmax}\!\left(\frac{\mathbf{Q}^{(i)}\mathbf{E}_{\mathrm{sk}}^{\top}}{\sqrt{d_{\mathrm{sk}}}}\right)\mathbf{E}_{\mathrm{sk}}.
-\end{equation}
-将图卷积输出与骨架节点特征拼接，得到第 $i$ 个尺度的空间特征 $\mathbf{X}_s^{(i)}$。
+\begin{algorithm}[t!]
+\caption{图池化构造第 $S_i$ 个尺度子图}
+\label{alg:ch4_graph_pooling}
+\begin{algorithmic}[1]
+\REQUIRE 节点嵌入 $X_{enc}\in\mathbb{R}^{N\times E}$，邻接矩阵 $\mathcal{A}\in\mathbb{R}^{N\times N}$，尺度因子 $F$，池化层索引 $i$
+\ENSURE 池化节点嵌入 $X_{enc}^i\in\mathbb{R}^{N_i\times E}$，池化邻接矩阵 $\mathcal{A}_i\in\mathbb{R}^{N_i\times N_i}$，保留节点索引 $idx_i$
+\STATE $N_i\leftarrow\lfloor N/F^{i}\rfloor$
+\STATE 构造单位矩阵 $\mathcal{I}\in\mathbb{R}^{N\times N}$
+\STATE $\tilde{\mathcal{A}}\leftarrow\mathcal{A}+\mathcal{I}$
+\STATE $\mathcal{D}\leftarrow\mathrm{diag}\!\left(\sum_j\tilde{\mathcal{A}}_{ij}\right)$
+\STATE $\mathcal{A}_{norm}\leftarrow\mathcal{D}^{-1/2}\tilde{\mathcal{A}}\mathcal{D}^{-1/2}$
+\STATE $X_{agg}\leftarrow\mathcal{A}_{norm}X_{enc}$
+\STATE $H\leftarrow\mathrm{ReLU}\!\left(W_1X_{agg}\right)$
+\STATE $scores_i\leftarrow W_2H\in\mathbb{R}^{N}$
+\STATE $idx_i\leftarrow\mathrm{TopK}\!\left(scores_i,N_i\right)$
+\STATE $\hat{X}_{enc}^i\leftarrow X_{enc}[idx_i]\odot\sigma\!\left(scores_i[idx_i]\right)$
+\STATE $X_{enc}^i\leftarrow\hat{X}_{enc}^i+\left(\mathcal{A}_{norm}X_{enc}\right)[idx_i]$
+\STATE $\mathcal{A}_i\leftarrow\mathcal{A}[idx_i,idx_i]$
+\STATE \RETURN $X_{enc}^i,\mathcal{A}_i,idx_i$
+\end{algorithmic}
+\end{algorithm}
 
-由于不同尺度图包含不同数量的节点，融合前需要将各尺度特征映射回原始节点空间。本章利用池化索引进行无参数的散布对齐，将第 $i$ 个尺度特征 $\mathbf{X}_s^{(i)}$ 恢复到原始节点：
+\textbf{尺度特异性特征提取。} 通过在不同尺度上应用图池化模块，得到层次图集合 $G=\{\mathcal{G}_0,\mathcal{G}_1,\ldots,\mathcal{G}_S\}$ 以及对应节点嵌入 $\mathcal{X}=\{X_{enc}^0,\ldots,X_{enc}^{(S)}\}$。为提取跨尺度空间模式，为每个尺度设计基于图卷积的尺度专家。对第 $i$ 个尺度图，堆叠 $L$ 层图卷积。第 $l$ 层计算为
 \begin{equation}
-\tilde{\mathbf{X}}_s^{(i)}[n]=\sum_{k:\mathrm{idx}_i[k]=n}\mathbf{X}_s^{(i)}[k],
-\end{equation}
-其中未保留节点位置置零，最细尺度保持不变。进一步，使用输入自适应门控计算各尺度的贡献：
-\begin{equation}
-\mathbf{c}=\frac{1}{N}\sum_{n=1}^{N}\mathbf{X}_{\mathrm{enc}}^{(0)}[n],
+\hat{\mathcal{A}_i}=\left(D_i\right)^{-\frac12}\mathcal{A}_i\left(D_i\right)^{-\frac12},
 \qquad
-\mathbf{g}=\mathrm{Softmax}\!\left(\mathbf{W}_2\,\mathrm{ReLU}\!\left(\mathbf{W}_1\mathbf{c}+\mathbf{b}_1\right)+\mathbf{b}_2\right).
+Z_i^0=\hat{\mathcal{A}_i}X_{enc}^iW^{(i,0)}+b^{(i,0)},
 \end{equation}
-最后，采用自顶向下方式将粗尺度信息逐步注入细尺度：
 \begin{equation}
-\mathbf{h}^{(S)}=\tilde{\mathbf{X}}_s^{(S)},
+Z_i^l=\mathrm{ReLU}\!\left(\hat{\mathcal{A}_i}Z_i^{l-1}W^{(i,l)}+b^{(i,l)}\right),
+\end{equation}
+其中 $\hat{\mathcal{A}_i}$ 为归一化邻接矩阵，$D_i$ 为度矩阵，$W^{(i,l)},b^{(i,l)}$ 为可学习参数。
+
+为了向尺度表示引入不依赖输入且空间上更稳定的结构特征，空间多尺度混合专家模块设置可学习骨架节点 $E_{sk}\in\mathbb{R}^{N_{\mathrm{sk}}\times d_{\mathrm{sk}}}$。骨架节点作为全局键和值嵌入，在每个尺度上与图卷积后的特征进行交叉注意力：
+\begin{equation}
+Q_i=Z_i^{L-1}W^{(i,Q)},
 \qquad
-\mathbf{h}^{(i)}=\mathbf{W}^{(i)}\mathbf{h}^{(i+1)}+\tilde{\mathbf{X}}_s^{(i)},\quad i=S-1,\ldots,0.
+E_{sk}^i=\mathrm{Softmax}\!\left(\frac{1}{\sqrt{d_{\mathrm{sk}}}}Q_iE_{sk}^{\top}\right)E_{sk},
 \end{equation}
-空间多尺度特征为
+其中 $E_{sk}^i\in\mathbb{R}^{N_i\times d_{\mathrm{sk}}}$ 为输入无关的结构特征，$Z_i^{L-1}$ 为图卷积最后一层前的隐状态，$Z_i^L$ 为图卷积输出。将 $E_{sk}^i$ 与 $Z_i^L$ 拼接，得到尺度特征 $X_s^i\in\mathbb{R}^{N_i\times d_m}$，其中 $d_m=d_o+d_{\mathrm{sk}}$。所有尺度专家完成后，得到多尺度空间特征集合 $\mathcal{X}_s=\{X_s^i\mid i=0,\ldots,S\}$。
+
+\subsection{尺度自适应融合}
+
+不同尺度图包含不同数量的节点，因此尺度特征不能直接相加。尺度自适应融合模块利用池化索引 $idx_i$ 中的物理对应关系，在原始节点空间中融合多尺度特征。它首先通过无参数的散布对齐将各尺度特征映射回原始节点集合，再通过输入自适应尺度门控确定各尺度的贡献。
+
+\textbf{散布对齐。} 对第 $i$ 个尺度特征 $X_s^i\in\mathbb{R}^{N_i\times d_m}$，根据 $idx_i$ 将其散布回原始 $N$ 个节点：
 \begin{equation}
-\mathbf{X}_{\mathrm{SMS}}=\mathbf{W}_O\left(\sum_{i=0}^{S}g_i\tilde{\mathbf{X}}_s^{(i)}+\mathbf{h}^{(0)}\right).
+\tilde{X}_s^i[n]=\sum_{k:idx_i[k]=n}X_s^i[k],
+\qquad n=1,\ldots,N,
 \end{equation}
+最细尺度保持不变，即 $\tilde{X}_s^0=X_s^0$。由于 $idx_i$ 包含互不相同的索引，每个池化节点被恢复到其在交通网络中的原始位置，其余 $N-N_i$ 个节点置为零向量。
+
+\textbf{输入自适应尺度门控。} 为实现自适应多尺度空间融合，使用依赖输入的门控机制控制不同尺度特征的组合。首先对所有节点取平均，得到当前样本的上下文向量：
+\begin{equation}
+c=\frac{1}{N}\sum_{n=1}^{N}X_{enc}^0[n]\in\mathbb{R}^{E},
+\end{equation}
+然后使用轻量门控网络和 Softmax 生成各尺度权重：
+\begin{equation}
+g=\mathrm{Softmax}\!\left(W_2\mathrm{ReLU}\!\left(W_1c+b_1\right)+b_2\right),
+\end{equation}
+其中 $g\in\mathbb{R}^{S+1}$ 且 $\sum_{i=0}^{S}g_i=1$。这样，每个尺度的贡献取决于当前交通条件：模型可以增强对当前输入最有信息量的尺度，同时抑制其他尺度。
+
+\textbf{自顶向下尺度混合。} 最细尺度特征来自原始图，最粗尺度特征来自节点最少的子图。由于粗尺度捕捉更宏观的模式，本章采用自顶向下混合策略~\cite{timemixer}：
+\begin{equation}
+h^S=\tilde{X}_s^S,
+\qquad
+h^i=W_ih^{(i+1)}+\tilde{X}_s^i,
+\qquad i=S-1,\ldots,0,
+\end{equation}
+其中 $W_i\in\mathbb{R}^{d_m\times d_m}$ 为可学习参数。通过该递归路径，粗尺度的宏观信息被逐步投影并注入细尺度。最后，将门控尺度特征与自顶向下混合特征相加并投影回编码器隐空间：
+\begin{equation}
+X_{SMS}=W_O\left(\sum_{i=0}^{S}g_i\tilde{X}_s^i+h^0\right)\in\mathbb{R}^{N\times E},
+\end{equation}
+其中 $W_O\in\mathbb{R}^{E\times d_m}$ 为可学习参数。尺度自适应融合流程如算法~\ref{alg:ch4_scale_fusion} 所示。
+
+\begin{algorithm}[t!]
+\caption{带散布对齐的尺度自适应融合}
+\label{alg:ch4_scale_fusion}
+\begin{algorithmic}[1]
+\REQUIRE 多尺度特征 $\mathcal{X}_s=\{X_s^i\mid i=0,\ldots,S\}$，池化索引 $\{idx_i\mid i=1,\ldots,S\}$，编码输入 $X_{enc}^0$
+\ENSURE 空间多尺度特征 $X_{SMS}\in\mathbb{R}^{N\times E}$
+\STATE $\tilde{X}_s^0\leftarrow X_s^0$
+\FOR{$i=1$ to $S$}
+    \STATE $\tilde{X}_s^i\leftarrow\mathbf{0}\in\mathbb{R}^{N\times d_m}$
+    \STATE $\tilde{X}_s^i[idx_i]\leftarrow X_s^i$
+\ENDFOR
+\STATE $c\leftarrow\frac{1}{N}\sum_{n=1}^{N}X_{enc}^0[n]$
+\STATE $g\leftarrow\mathrm{Softmax}\!\left(W_2\mathrm{ReLU}\!\left(W_1c+b_1\right)+b_2\right)$
+\STATE $h\leftarrow\tilde{X}_s^S$
+\FOR{$i=S-1$ to $0$}
+    \STATE $h\leftarrow W_ih+\tilde{X}_s^i$
+\ENDFOR
+\STATE $X_{SMS}\leftarrow W_O\left(\sum_{i=0}^{S}g_i\tilde{X}_s^i+h\right)$
+\STATE \RETURN $X_{SMS}$
+\end{algorithmic}
+\end{algorithm}
 
 \subsection{静态—动态双混合专家模块}
 
-交通数据中的静态结构反映由道路连接决定的长期空间拓扑，动态结构则反映随时间变化且不受邻接矩阵限制的节点交互。为联合建模二者，本章使用两个稀疏激活的混合专家模块。
+为联合建模静态空间结构和动态时间变化，本章设计静态—动态双混合专家模块，包含两个轻量、稀疏激活的混合专家。静态图混合专家使用路由器将交通数据分配到不同静态图专家，基于图卷积的专家捕捉静态图中的显式拓扑结构；动态图混合专家则使用节点级全注意力动态图专家挖掘动态图中的隐式时间依赖。
 
-静态图混合专家以节点嵌入和可学习节点表示共同作为路由输入，利用噪声 Top-$k$ 门控选择 $k$ 个静态图专家。设路由输入为 $\mathbf{X}^{\mathrm{sg}}$，噪声门控得分为
+\textbf{静态图混合专家。} 为根据时空特征将数据路由到不同专家，定义可学习节点嵌入 $E_n\in\mathbb{R}^{N\times E}$，并将其与 $X_{enc}$ 拼接，得到路由输入 $X_{sg}\in\mathbb{R}^{N\times 2E}$。该设计注入静态空间信息以辅助专家选择。路由器使用全连接层实现：
 \begin{equation}
-\mathbf{H}^{\mathrm{sg}}=\mathbf{W}_e\left(\mathbf{X}^{\mathrm{g}}+\gamma\,\mathrm{Softplus}\!\left(\mathbf{X}^{\mathrm{n}}\right)\right),
-\end{equation}
-其中 $\mathbf{X}^{\mathrm{g}}$ 和 $\mathbf{X}^{\mathrm{n}}$ 为两个线性分支的输出，$\gamma\sim\mathcal{N}(0,1)$。经 Softmax 和 Top-$k$ 后得到路由权重 $\mathbf{G}^{\mathrm{sg}}$。每个静态图专家由若干层图卷积组成，输出静态结构特征 $\mathbf{H}_j^{\mathrm{sg}}$，静态图特征为
-\begin{equation}
-\mathbf{H}^{\mathrm{SG}}=\sum_{j=1}^{k}G_j^{\mathrm{sg}}\mathbf{H}_j^{\mathrm{sg}}.
-\end{equation}
-动态图混合专家则仅以节点嵌入作为路由输入，使路由过程不依赖预先给定的空间结构。被选中的动态图专家使用节点级全注意力建模任意节点之间的动态交互：
-\begin{equation}
-\mathbf{H}^{\mathrm{att}}=\mathrm{SelfAttention}\!\left(\mathbf{X}_{\mathrm{enc}}\right),
+X_g=W_g^l\left(\mathrm{ReLU}\!\left(X_{sg}W_g^0\right)W_g^1\right),
 \qquad
-\mathbf{H}^{\mathrm{de}}=\mathrm{FFN}\!\left(\mathbf{H}^{\mathrm{att}}\right).
+X_n=W_n^l\left(\mathrm{ReLU}\!\left(X_{sg}W_n^0\right)W_n^1\right),
 \end{equation}
-动态图特征由被选中专家的输出加权得到：
+其中 $W_g^l,W_n^l\in\mathbb{R}^{N_e\times N}$，$W_g^0,W_n^0\in\mathbb{R}^{2E\times h}$，$W_g^1,W_n^1\in\mathbb{R}^{h\times 1}$，$h$ 为隐层维度，$N_e$ 为专家数。随后使用噪声门控技术~\cite{moe} 选择 Top-$k$ 个专家并计算权重：
 \begin{equation}
-\mathbf{H}^{\mathrm{DG}}=\sum_{j=1}^{k}G_j^{\mathrm{dg}}\mathbf{H}_j^{\mathrm{dg}}.
+G\!\left(X_{enc}\right)=\mathrm{Softmax}\!\left(\mathrm{KeepTopK}\!\left(H\!\left(X_{enc}\right),k\right)\right),
 \end{equation}
-最终将静态图特征和动态图特征拼接：
 \begin{equation}
-\mathbf{X}_{\mathrm{SD}}=\left[\mathbf{H}^{\mathrm{SG}};\mathbf{H}^{\mathrm{DG}}\right].
+H\!\left(X_{enc}\right)=W_e\left(X_g+\gamma\,\mathrm{Softplus}\!\left(X_n\right)\right),
+\end{equation}
+其中 $\gamma\sim\mathcal{N}(0,1)$。噪声项用于重采样并稳定噪声门控，Softplus 保持门控信号为正。路由完成后，$X_{enc}$ 被送入选中的 $k$ 个静态图专家，每个专家堆叠 $N_s$ 层图卷积：
+\begin{equation}
+X_{se}^1=\mathrm{GCNLayer}_0\!\left(X_{enc},\hat{\mathcal{A}}\right),
+\qquad
+X_{se}^{i+1}=\mathrm{GCNLayer}_i\!\left(X_{\mathrm{se}}^{(i)},\hat{\mathcal{A}}\right).
+\end{equation}
+被选中专家的输出按门控权重聚合：
+\begin{equation}
+X_{SG}=\sum_{j=1}^{k}G_j\!\left(X_{enc}\right)X_{se,j}^{N_s},
+\end{equation}
+其中 $X_{SG}\in\mathbb{R}^{N\times d_S}$ 为静态图特征，$d_S$ 为输出维度。
+
+\textbf{动态图混合专家。} 动态图混合专家采用与静态图混合专家相同的稀疏激活结构，但其路由信号仅由 $X_{enc}$ 计算，使路由器能够自适应区分隐式时间模式，而不依赖预先给定的空间结构。被选中的动态图专家使用全自注意力提取动态时空特征：
+\begin{equation}
+X_{att}=\mathrm{SelfAttention}\!\left(X_{enc}\right),
+\qquad
+X_{de}=\mathrm{FFN}\!\left(X_{att}\right).
+\end{equation}
+通过注意力矩阵，该机制隐式诱导动态图，并建模超出局部邻域的跨节点交互。与受静态图拓扑约束的静态图专家不同，动态图专家能够捕捉随时间演化且不局限于局部邻近关系的依赖。专家输出经门控权重聚合，得到动态图特征 $X_{DG}\in\mathbb{R}^{N\times d_D}$。最后，将静态图和动态图特征拼接：
+\begin{equation}
+X_{SD}=\left[X_{SG};X_{DG}\right].
 \end{equation}
 
 \subsection{特征融合与预测输出}
 
-为自适应平衡空间多尺度特征与静动态时空特征，本章使用门控融合：
+通过联合建模空间与时间非平稳性，模型分别得到空间多尺度特征 $X_{SMS}$ 和静动态时空特征 $X_{SD}$。为自适应融合二者，使用门控融合网络。首先拼接两类特征，并送入两层 MLP，再通过 Sigmoid 生成门控值 $g$：
 \begin{equation}
-\mathbf{z}=\mathrm{FC}_2^{\mathrm{f}}\!\left(\mathrm{ReLU}\!\left(\mathrm{FC}_1^{\mathrm{f}}\left[\mathbf{X}_{\mathrm{SMS}};\mathbf{X}_{\mathrm{SD}}\right]\right)\right),
+logits=\mathrm{FC}_2^{\mathrm{f}}\!\left(\mathrm{ReLU}\!\left(\mathrm{FC}_1^{\mathrm{f}}\left[X_{SMS};X_{SD}\right]\right)\right),
 \qquad
-g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
+g=\mathrm{Sigmoid}\!\left(logits\right),
 \end{equation}
 \begin{equation}
-\mathbf{X}_{\mathrm{fuse}}=g\,\mathbf{X}_{\mathrm{SMS}}+\left(1-g\right)\mathbf{X}_{\mathrm{SD}}.
+X_{fuse}=g\,X_{SMS}+\left(1-g\right)X_{SD}.
 \end{equation}
-随后，将融合特征与节点嵌入、时刻嵌入和可学习节点表示拼接，并经过残差 MLP 和预测层得到未来交通预测：
+随后将融合特征与节点嵌入、时刻嵌入和可学习节点表示拼接，并通过 $M$ 层残差 MLP 进一步融合：
 \begin{equation}
-\mathbf{H}^{(0)}=\left[\mathbf{X}_{\mathrm{enc}};\mathbf{E}^{\mathrm{tid}};\mathbf{E}^{\mathrm{diw}};\mathbf{E}_n;\mathbf{X}_{\mathrm{fuse}}\right],
-\end{equation}
-\begin{equation}
-\mathbf{H}^{(m)}=\mathbf{H}^{(m-1)}+\mathrm{FC}_2^{(m)}\!\left(\mathrm{ReLU}\!\left(\mathrm{FC}_1^{(m)}\mathbf{H}^{(m-1)}\right)\right),
+H_0=\left[X_{enc};E^{\mathrm{tid}};E^{\mathrm{diw}};E_n;X_{fuse}\right],
 \end{equation}
 \begin{equation}
-\hat{\mathbf{Y}}=\mathrm{FC}^{\mathrm{pred}}\!\left(\mathbf{H}^{(M)}\right).
+H_m=H^{(m-1)}+\mathrm{FC}_2^{(m)}\!\left(\mathrm{ReLU}\!\left(\mathrm{FC}_1^{(m)}H^{(m-1)}\right)\right).
 \end{equation}
-主损失采用平均绝对误差，并加入混合专家负载均衡损失：
+预测层从 $H_M$ 预测未来交通值：
 \begin{equation}
-\mathcal{L}_{\mathrm{main}}=\frac{1}{NH}\sum_{n=1}^{N}\sum_{h=1}^{H}\left|\hat{Y}_{n,h}-Y_{n,h}\right|,
-\qquad
+\hat{Y}=\mathrm{FC}^{\mathrm{pred}}\!\left(H_M\right).
+\end{equation}
+主损失采用平均绝对误差：
+\begin{equation}
+\mathcal{L}_{\mathrm{main}}=\frac{1}{NH}\sum_{n=1}^{N}\sum_{t=1}^{H}\left|\hat{Y}_n^t-Y_n^t\right|.
+\end{equation}
+为平衡专家负载，另加入辅助损失 $\mathcal{L}_{\mathrm{moe}}$~\cite{moe}，最终目标为
+\begin{equation}
 \mathcal{L}=\mathcal{L}_{\mathrm{main}}+\lambda\mathcal{L}_{\mathrm{moe}},
 \end{equation}
-其中 $\mathcal{L}_{\mathrm{moe}}$ 为静态图混合专家和动态图混合专家的负载均衡损失之和，$\lambda$ 为平衡系数。
+其中 $\lambda$ 为平衡系数。
+
+
 
 \section{实验结果与分析}
 
 \subsection{实验设置}
 
-实验使用 6 个常用交通数据集：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。评价指标为 MAE、MAPE 和 RMSE，输入历史长度和预测长度均设为 $12$，并报告第 $3$、$6$、$12$ 步及平均结果。对比方法包括 TESTAM、ST-MoE、STDN、STPGNN、DGCRN、MegaCRN、AGCRN、MTGNN、StemGNN、Graph WaveNet、STGCN、DCRNN、DUET、STID 和 ST-Norm 等~\cite{testam,st-moe,stdn,stpgnn,dgcrn,megacrn,agcrn,mtgnn,stemgnn,gwnet,stgcn,dcrnn,duet,stid,st-norm}。实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}。
+实验使用 6 个常用交通数据集：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。评价指标为平均绝对误差（Mean Absolute Error，MAE）、平均绝对百分比误差（Mean Absolute Percentage Error，MAPE）和均方根误差（Root Mean Squared Error，RMSE）。为便于描述，记测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点在未来 $H$ 个时间步的预测结果 $\hat{Y}\in\mathbb{R}^{N\times H}$ 和真实值 $Y\in\mathbb{R}^{N\times H}$。各指标定义如下：
+\begin{equation}
+\mathrm{MAE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{h=1}^{H}\sum_{n=1}^{N}
+\left|\hat{Y}_{k,n,h}-Y_{k,n,h}\right|,
+\end{equation}
+\begin{equation}
+\mathrm{MAPE}=\frac{100\%}{KHN}\sum_{k=1}^{K}\sum_{h=1}^{H}\sum_{n=1}^{N}
+\frac{\left|\hat{Y}_{k,n,h}-Y_{k,n,h}\right|}{\left|Y_{k,n,h}\right|},
+\end{equation}
+\begin{equation}
+\mathrm{RMSE}=\sqrt{\frac{1}{KHN}\sum_{k=1}^{K}\sum_{h=1}^{H}\sum_{n=1}^{N}
+\left(\hat{Y}_{k,n,h}-Y_{k,n,h}\right)^{2}}.
+\end{equation}
+输入历史长度和预测长度均设为 $12$，并报告第 $3$、$6$、$12$ 步及平均结果。对比方法包括 TESTAM~\cite{testam}、ST-MoE~\cite{st-moe}、STDN~\cite{stdn}、STPGNN~\cite{stpgnn}、DGCRN~\cite{dgcrn}、MegaCRN~\cite{megacrn}、AGCRN~\cite{agcrn}、MTGNN~\cite{mtgnn}、StemGNN~\cite{stemgnn}、Graph WaveNet~\cite{gwnet}、STGCN~\cite{stgcn}、DCRNN~\cite{dcrnn}、DUET~\cite{duet}、STID~\cite{stid} 和 ST-Norm~\cite{st-norm}等。实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}。
 
 \begin{table}[t!]
     \centering
     \caption{数据集统计信息。}
     % % \vspace{-1.5em}
-    \resizebox{\linewidth}{!}{
+    % \resizebox{\linewidth}{!}{
     \begin{tabular}{c|ccccc}
     \toprule
-        \textbf{Datasets} & \textbf{Data Type} & \textbf{\#Nodes} & \textbf{\#Edges} & \textbf{Lengths} & \textbf{Split} \\
+        \textbf{数据集} & \textbf{数据类型} & \textbf{节点数} & \textbf{边数} & \textbf{样本数} & \textbf{划分比例} \\
         \midrule
         METR-LA & Traffic Speed & 207 & 1722 & 34272 & 7:1:2 \\
         PEMS-BAY & Traffic Speed & 325 & 2694 & 52116 & 7:1:2 \\
@@ -171,7 +263,7 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
         PEMS08 & Traffic Flow & 170 & 548 & 17856 & 6:2:2 \\
     \bottomrule
     \end{tabular}
-    }
+    % }
     \label{tab:statics-datasets}
     \vspace{-1.em}
 \end{table}
@@ -184,11 +276,11 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
     % \begin{tabular}{cc|ccc|ccc|ccc|ccc|ccc|ccc}
     \begin{tabular}{cc|cccc|cccc|cccc|cccc|cccc|cccc}
     \toprule
-        \multicolumn{2}{c|}{\textbf{Datasets}} & \multicolumn{4}{c|}{\textbf{METR-LA}} & \multicolumn{4}{c|}{\textbf{PEMS-BAY}} & \multicolumn{4}{c|}{\textbf{PEMS03}} & \multicolumn{4}{c|}{\textbf{PEMS04}} & \multicolumn{4}{c|}{\textbf{PEMS07}} & \multicolumn{4}{c}{\textbf{PEMS08}} \\
+        \multicolumn{2}{c|}{\textbf{数据集}} & \multicolumn{4}{c|}{\textbf{METR-LA}} & \multicolumn{4}{c|}{\textbf{PEMS-BAY}} & \multicolumn{4}{c|}{\textbf{PEMS03}} & \multicolumn{4}{c|}{\textbf{PEMS04}} & \multicolumn{4}{c|}{\textbf{PEMS07}} & \multicolumn{4}{c}{\textbf{PEMS08}} \\
     
-        \multicolumn{2}{c|}{Methods} & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. \\
+        \multicolumn{2}{c|}{方法} & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. & 3rd & 6th & 12th & avg. \\
     \midrule
-        \multirow{3}{*}{Ours} & mae & 2.761 & \textcolor{blue}{\underline{3.118}} & \textcolor{red}{\textbf{3.468}} & \textcolor{blue}{\underline{3.059}}   & \textcolor{red}{\textbf{1.278}} & \textcolor{red}{\textbf{1.579}} & \textcolor{red}{\textbf{1.842}} & \textcolor{red}{\textbf{1.517}}   & \bestres{13.47} & \bestres{14.68} & \bestres{16.53} & \bestres{14.67}   & \bestres{17.40} & \bestres{18.19} & \bestres{19.31} & \bestres{18.14}   & \bestres{17.85} & \bestres{19.10} & \bestres{20.74} & \bestres{19.00}   & \bestres{12.78} & \bestres{13.74} & \bestres{14.97} & \bestres{13.69} \\
+        \multirow{3}{*}{本章方法} & mae & 2.761 & \textcolor{blue}{\underline{3.118}} & \textcolor{red}{\textbf{3.468}} & \textcolor{blue}{\underline{3.059}}   & \textcolor{red}{\textbf{1.278}} & \textcolor{red}{\textbf{1.579}} & \textcolor{red}{\textbf{1.842}} & \textcolor{red}{\textbf{1.517}}   & \bestres{13.47} & \bestres{14.68} & \bestres{16.53} & \bestres{14.67}   & \bestres{17.40} & \bestres{18.19} & \bestres{19.31} & \bestres{18.14}   & \bestres{17.85} & \bestres{19.10} & \bestres{20.74} & \bestres{19.00}   & \bestres{12.78} & \bestres{13.74} & \bestres{14.97} & \bestres{13.69} \\
         
         & mape(\%) & 7.478 & 9.038 & 10.50 & 8.801   & \bestres{2.680} & \bestres{3.557} & \bestres{4.276} & \bestres{3.412}   & 14.08 & 15.07 & 17.08 & 15.14   & \bestres{11.81} & \bestres{12.21} & \bestres{13.06} & \bestres{12.24}   & \bestres{7.514} & \bestres{7.999} & \bestres{8.785} & \bestres{7.985}   & \bestres{8.365} & \bestres{8.970} & \bestres{10.00} & \bestres{9.060} \\
         
@@ -301,10 +393,10 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
     \resizebox{\linewidth}{!}{\setlength{\tabcolsep}{4pt}
     \begin{tabular}{cc|cccccc}
         \toprule
-        \multicolumn{2}{c|}{\textbf{Datasets}} & \textbf{METR-LA} & \textbf{PEMS-BAY} & \textbf{PEMS03} & \textbf{PEMS04} & \textbf{PEMS07} & \textbf{PEMS08} \\
+        \multicolumn{2}{c|}{\textbf{数据集}} & \textbf{METR-LA} & \textbf{PEMS-BAY} & \textbf{PEMS03} & \textbf{PEMS04} & \textbf{PEMS07} & \textbf{PEMS08} \\
         
         \midrule
-        \multirow{3}{*}{Ours} & mae & \textbf{3.059} & \textbf{1.517} & \textbf{14.67} & \textbf{18.14} & \textbf{19.00} & \textbf{13.69}  \\
+        \multirow{3}{*}{本章方法} & mae & \textbf{3.059} & \textbf{1.517} & \textbf{14.67} & \textbf{18.14} & \textbf{19.00} & \textbf{13.69}  \\
         & mape(\%) & \textbf{8.801} & \textbf{3.412} & \textbf{15.14} & \textbf{12.24} & \textbf{7.985} & \textbf{9.060} \\
         & rmse & \textbf{6.347} & \textbf{3.511} & \textbf{25.20} & \textbf{29.92} & \textbf{32.21} & \textbf{23.77} \\
         
@@ -346,6 +438,7 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
     \centering
     \caption{不同多尺度混合策略的对比，所有时间步结果取平均，最优结果加粗。}
     \label{tab:mixing-strategy}
+    \resizebox{\linewidth}{!}{
     \begin{tabular}{c|ccc|ccc|ccc}
          \toprule
          \textbf{Strategy} & \multicolumn{3}{c|}{\textbf{Top-Down}} & \multicolumn{3}{c|}{\textbf{Bottom-Up}} & \multicolumn{3}{c}{\textbf{Average}}  \\
@@ -365,6 +458,7 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
          PEMS08 & \textbf{13.69} & \textbf{9.060} & \textbf{23.77} & 13.76 & 9.112 & 24.08 & 13.80 & 9.139 & 23.92 \\ 
          \bottomrule
     \end{tabular}
+    }
     \vspace{-1em}
 \end{table*}
 
@@ -423,7 +517,7 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
     \caption{不同专家数量 $E$ 下的预测精度，$E$ 为 DyG-MoE 与 SG-MoE 的专家数，所有时间步结果取平均，最优结果加粗。}
     \label{tab:parasen-expertNum}
     %\vspace{-.5em}
-    \resizebox{\linewidth}{!}{
+    % \resizebox{\linewidth}{!}{
         \begin{tabular}{cc|ccccc}
              \toprule
              \multicolumn{2}{c|}{\textbf{Expert Number}} & $E=1$ & $E=2$ & $E=3$ & $E=4$ & $E=5$ \\
@@ -465,7 +559,7 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
 
              \bottomrule
         \end{tabular}
-    }
+    % }
     % \vspace{-1.em}
 \end{table}
 
@@ -505,7 +599,7 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
     \label{tab:efficiency}
     \begin{tabular}{cc|cccc}
     \toprule
-        \multicolumn{2}{c|}{\textbf{Datasets}} & \textbf{$k=1$} & \textbf{$k=2$} & \textbf{$k=3$} & \textbf{$k=4$} \\
+        \multicolumn{2}{c|}{\textbf{数据集}} & \textbf{$k=1$} & \textbf{$k=2$} & \textbf{$k=3$} & \textbf{$k=4$} \\
     \midrule
         \multirow{3}{*}{{METR-LA}} 
         & Mem.(GB) & 1.47 & 1.48 & 1.48 & 1.50 \\
@@ -531,9 +625,10 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
   \caption{长时预测结果，评估第 12、24、48、72 步及所有时间步平均值；最优结果加粗，次优结果下划线。}
   
   \label{tab:long_term}
+  \resizebox{\linewidth}{!}{
     \begin{tabular}{cc|ccc|ccc|ccc|ccc}
       \toprule
-      \multicolumn{2}{c|}{\multirow{2}{*}{\textbf{Datasets}}} & \multicolumn{3}{c|}{\textbf{Ours}} & \multicolumn{3}{c|}{\textbf{DUET}} & \multicolumn{3}{c|}{\textbf{STPGNN}} & \multicolumn{3}{c}{\textbf{STID}} \\
+      \multicolumn{2}{c|}{\multirow{2}{*}{\textbf{数据集}}} & \multicolumn{3}{c|}{\textbf{本章方法}} & \multicolumn{3}{c|}{\textbf{DUET}} & \multicolumn{3}{c|}{\textbf{STPGNN}} & \multicolumn{3}{c}{\textbf{STID}} \\
       
        & & mae & mape (\%) & rmse & mae & mape (\%) & rmse & mae & mape (\%) & rmse & mae & mape (\%) & rmse \\
       \midrule
@@ -571,6 +666,7 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
       
       \bottomrule
     \end{tabular}%
+  }
   % \vspace{-1em}
 \end{table*}
 
@@ -583,6 +679,75 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
 \textbf{Top-$k$ 的影响。} SD-MoE 采用稀疏 Top-$k$ 路由。表~\ref{tab:parasen-topK} 和表~\ref{tab:efficiency} 显示，$k=1$ 时性能受限，单个激活专家不足以覆盖多样的时空模式；$k\ge 3$ 时性能进一步下降且计算开销增大；$k=2$ 能在性能和计算开销之间取得较好平衡，因此本章默认采用 $k=2$。
 
 \textbf{长时预测。} 表~\ref{tab:long_term} 给出在 $12$、$24$、$48$、$72$ 步上的长时预测结果。整体来看，本章方法在多数长时预测设置下保持较优或接近最优的 MAE、MAPE 和 RMSE，说明空间多尺度建模与静动态双混合专家结构对较长预测范围仍具有较好适应性。
+
+
+
+\subsubsection{复杂度分析}
+
+\textbf{理论复杂度。} 本节分析一次前向传播的复杂度。设 $N$ 为节点数，$T$ 为历史时间步数，$H$ 为预测长度，$|\mathcal{E}|$ 为交通图边数，$d_h$ 为隐藏维度，$d_{S,h}$ 为静态图专家的隐藏维度。主要计算开销来自空间多尺度混合专家模块和静态图混合专家中的图卷积层、骨架节点注意力、动态图混合专家中的节点级自注意力以及尺度混合。图池化、路由、门控和最终预测 MLP 属于低阶项，为简洁起见省略。整体复杂度为
+\begin{equation}
+\mathcal{O}\!\left(L|\mathcal{E}|d_h^2+kN_s|\mathcal{E}|d_{S,h}^2+N_{\mathrm{sk}}Nd_{\mathrm{sk}}+kN^2E+SNd_m^2\right).
+\end{equation}
+对稀疏交通图而言，平方级节点项主要由骨架节点注意力和动态图混合专家的全注意力主导，而自顶向下尺度混合对 $N$ 是线性的。稀疏专家激活和图池化可以降低常数因子。
+
+\textbf{资源开销。} 本节在 6 个数据集上评估本章方法与基线的资源占用。所有实验使用历史长度和预测长度均为 $12$；为保证公平比较，训练批量大小设为 $16$，推理批量大小设为 $64$。训练和推理的详细资源开销见表~\ref{tab:resource-consume}。结果表明，尽管本章方法比大多数基线包含更多可学习参数，但在 6 个数据集中的 5 个上 GPU 显存占用最低；即使在参数量最大的 PEMS08 上，其显存占用也远低于较重基线。这种效率来自稀疏激活的混合专家框架，使模型容量增加时不会带来等比例的显存开销。
+
+\begin{table}[t]
+    \centering
+    \caption{本章方法与基线在训练和推理中的计算开销。Mem.(GB)、T.S. 和 I.S. 分别表示 GPU 显存、训练速度和推理速度；OOM 表示在 24 GB GPU 上显存不足。}
+    % \vspace{1em}
+    \label{tab:resource-consume}
+    \resizebox{\linewidth}{!}{
+    \begin{tabular}{cc|cccccc}
+         \toprule
+         \textbf{方法} & \textbf{指标} & \textbf{METR-LA} & \textbf{PEMS-BAY} & \textbf{PEMS03} & \textbf{PEMS04} & \textbf{PEMS07} & \textbf{PEMS08} \\
+
+         \midrule
+         \multirow{4}{*}{\textbf{本章方法}} & Params(M)  & 1.68 & 2.12 & 1.23 & 1.94 & 1.74 & 6.57 \\
+         & Mem.(GB) & 1.48 & 2.85 & 1.80 & 1.57 & 4.15 & 1.96 \\
+         & T.S.(it/s) & 12.27 & 11.00 & 12.91 & 11.21 & 9.29 & 11.02 \\
+         & I.S.(it/s) & 43.70 & 33.77 & 39.18 & 35.53 & 18.20 & 39.06 \\
+
+         \midrule
+         \multirow{4}{*}{\textbf{STDN}} & Params(M) & 3.78 & 4.06 & 4.13 & 4.01 & 3.41 & 3.70 \\
+         & Mem.(GB) & 5.05 & 7.80 & 7.93 & 7.19 & 12.77 & 4.20 \\
+         & T.S.(it/s) & 15.09 & 10.81 & 9.40 & 10.35 & 5.10 & 13.05 \\
+         & I.S.(it/s) & 13.46 & 9.16 & 8.48 & 9.31 & 8.19 & 16.08 \\
+
+         \midrule
+         \multirow{4}{*}{\textbf{STPGNN}} & Params(M) & 0.37 & 0.38 & 0.38 & 0.63 & 0.41 & 0.37 \\
+         & Mem.(GB) & 1.76 & 3.33 & 2.38 & 2.04 & 5.42 & 1.17 \\
+         & T.S.(it/s) & 20.28 & 21.55 & 22.24 & 24.73 & 17.12 & 31.52 \\
+         & I.S.(it/s) & 96.37 & 53.36 & 51.53 & 58.32 & 12.08 & 93.53 \\
+
+         \midrule
+         \multirow{4}{*}{\textbf{TESTAM}} & Params(M) & 0.20 & 0.22 & 0.22 & 0.21 & 0.25 & 0.20  \\
+         & Mem.(GB) & 10.58 & 19.56 & 21.16 & 18.53 & OOM & 8.61 \\
+         & T.S.(it/s) & 12.57 & 11.89 & 10.67 & 12.18 & - & 11.37 \\
+         & I.S.(it/s) & 17.42 & 9.62 & 8.54 & 10.41 & - & 21.63\\
+         
+         \midrule
+         \multirow{4}{*}{\textbf{MegaCRN}} & Params(M) & 0.39 & 0.39 & 0.39 & 0.39 & 0.42 & 0.39 \\
+         & Mem.(GB) & 1.93 & 3.66 & 2.92 & 2.38 & 7.08 & 1.44 \\
+         & T.S.(it/s) & 10.24 & 9.57 & 9.66 & 10.35 & 6.08 & 10.78 \\
+         & I.S.(it/s) & 25.29 & 18.46 & 18.39 & 22.66 & 5.60 & 30.20 \\
+
+         \midrule
+         \multirow{4}{*}{\textbf{DGCRN}} & Params(M) & 0.20 & 0.21 & 0.21 & 0.21 & 0.25 & 0.20 \\
+         & Mem.(GB) & 2.00 & 3.90 & 3.45 & 2.60 & 10.51 & 1.38 \\
+         & T.S.(it/s) & 5.35 & 4.45 & 4.64 & 4.66 & 2.94 & 5.56 \\
+         & I.S.(it/s) & 5.67 & 4.90 & 4.21 & 4.46 & 1.42 & 6.05 \\
+
+         \midrule
+         \multirow{4}{*}{\textbf{GWNet}} & Params(M) & 0.31 & 0.31 & 0.31 & 0.31 & 0.32 & 0.31 \\
+         & Mem.(GB) & 1.75 & 3.09 & 2.23 & 1.97 & 5.21 & 1.40 \\
+         & T.S.(it/s) & 27.37 & 24.29 & 22.13 & 21.84 & 13.23 & 23.62 \\
+         & I.S.(it/s) & 56.63 & 35.80 & 32.85 & 40.87 & 10.64 & 69.65 \\
+         \bottomrule
+    \end{tabular}
+    }
+    % \vspace{-1.em}
+\end{table}
 
 
 \subsection{可视化分析}
@@ -622,4 +787,10 @@ g=\mathrm{Sigmoid}\!\left(\mathbf{z}\right),
 
 \section{本章小结}
 
-本章针对具有显式空间图结构的交通预测问题，提出一种融合自适应空间多尺度建模与静动态双混合专家的预测框架。该框架通过图池化以数据驱动方式构造多个空间尺度，并利用尺度专家和自适应融合捕捉空间多尺度模式；同时使用静态图专家和动态图专家分别建模显式拓扑结构与隐式时空依赖。实验表明，该框架在多个交通数据集上总体取得较优结果，消融和参数分析验证了空间多尺度建模、静动态双专家和稀疏路由的有效性。
+本章针对具有显式空间图结构的交通预测问题，提出了一种融合自适应空间多尺度建模与静动态双混合专家的预测框架。与现有方法依赖距离、聚类或节点相似性等先验知识构造固定空间尺度的做法不同，本章通过图池化以数据驱动方式逐步构造多个空间尺度，并利用尺度专家和尺度自适应融合提取尺度特异性特征。该设计使模型能够根据当前交通状态动态调整不同尺度的贡献，从而同时捕捉局部路段拥堵传播和区域级宏观交通模式。
+
+在时空依赖建模方面，本章使用静态图混合专家和动态图混合专家分别处理显式道路拓扑和隐式时空交互。静态图专家通过图卷积保留由路网连接决定的结构先验；动态图专家通过节点级全注意力建模不受局部邻域限制且随时间变化的跨节点依赖。两个模块均采用稀疏激活和噪声门控路由，能够在不显著增加计算开销的情况下提高模型容量，并通过门控融合自适应整合空间多尺度特征和静动态时空特征。
+
+在 6 个公开交通数据集上的实验表明，本章方法在多数预测步和平均指标上取得较优或接近最优的结果。消融实验验证了空间多尺度混合专家、静态图专家、动态图专家、负载均衡损失和骨架节点的作用；尺度因子、专家数量和 Top-$k$ 分析进一步说明了尺度自适应、稀疏激活和路由参数对预测性能的影响。可视化结果也表明，模型在高峰和平峰时段会选择不同的空间尺度和专家，能够学习时间自适应的空间多尺度表示。
+
+综上，本章将第3章中的多尺度建模与混合专家思想从时间维度扩展到空间图结构，并进一步联合建模静态与动态时空依赖。与第3章共同构成了一套从一般多元时间序列预测到结构化时空交通预测的递进研究框架。
