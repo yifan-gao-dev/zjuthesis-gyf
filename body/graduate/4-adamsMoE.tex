@@ -7,9 +7,9 @@
 
 第3章主要面向缺乏显式空间图结构的一般多元时间序列预测问题，从时间多尺度和通道级混合专家的角度缓解时间非平稳与变量分布差异。在此基础上，本章进一步将研究对象扩展至具有显式空间图结构的交通预测问题。与一般多元时间序列预测相比，交通预测中的观测节点不再只是相互独立的变量，而是与真实路网中的传感器或路段一一对应，节点之间通过道路连接形成显式的空间邻接关系。因此，交通预测不仅要建模时间维度的变化，还要利用空间拓扑先验刻画节点之间的相互作用。
 
-现实交通系统通常同时受到空间非平稳性和时间非平稳性的影响。在空间维度上，交通模式会随空间尺度发生变化：相邻路段之间的局部拥堵传播、区域之间的宏观流量转移以及城市尺度的整体需求变化，往往需要不同粒度的图结构才能分别刻画。在时间维度上，同一路网在高峰期、非高峰期和夜间等不同时段会呈现明显不同的交通状态；即使在同一时段内，由道路连接决定的静态依赖与由交通状态演化产生的动态交互也同时存在。上述因素使得单一尺度、单一图结构或单一时间建模方式难以充分表达交通时空数据的异质性。
+现实交通系统通常同时受到空间非平稳性和时间非平稳性的影响~\cite{maup,scale-independent01,mgwr,brockwell1991time,revin}。在空间维度上，交通模式会随空间尺度发生变化：相邻路段之间的局部拥堵传播、区域之间的宏观流量转移以及城市尺度的整体需求变化，往往需要不同粒度的图结构才能分别刻画。在时间维度上，同一路网在高峰期、非高峰期和夜间等不同时段会呈现明显不同的交通状态；即使在同一时段内，由道路连接决定的静态依赖与由交通状态演化产生的动态交互也同时存在。上述因素使得单一尺度、单一图结构或单一时间建模方式难以充分表达交通时空数据的异质性。
 
-现有交通预测方法虽然已经广泛使用图神经网络和多尺度建模，但仍存在两方面不足。一方面，空间多尺度方法大多依赖距离、聚类或节点相似性等先验知识构造尺度，且通常只考虑原图和一个额外子图两个尺度，难以根据当前交通状态自适应确定尺度数量和融合方式。另一方面，静态图方法和动态图方法通常分别建模静态拓扑与动态依赖，或采用全激活、硬选择的混合专家结构，难以在同一时间状态下灵活协同两类信息。针对这些问题，本章构建一个融合自适应空间多尺度建模与静动态双混合专家的交通预测框架：通过数据驱动的图池化自适应构造多个空间尺度，利用尺度专家和自适应融合提取尺度特异性特征；同时使用稀疏激活的静态图专家和动态图专家分别建模显式拓扑结构与隐式时空依赖，从而在保留路网结构先验的基础上，补充由注意力机制发现的动态跨节点交互。
+现有交通预测方法虽然已经广泛使用图神经网络和多尺度建模~\cite{tkde-sigma,stgcn,dcrnn,agcrn,hierarchy-forecast,gnn4ts,tkde-star,airformer,gagnn,mixrnn+,mc-stgcn,dyhsl,pygnn}，但仍存在两方面不足。一方面，空间多尺度方法大多依赖距离、聚类或节点相似性等先验知识构造尺度，且通常只考虑原图和一个额外子图两个尺度，难以根据当前交通状态自适应确定尺度数量和融合方式；另一方面，静态图方法和动态图方法通常分别建模静态拓扑与动态依赖，或采用全激活、硬选择的混合专家结构，难以在同一时间状态下灵活协同两类信息~\cite{stgcn,dcrnn,dgcrn,agcrn,d2stgnn,stdn,mtgnn,testam,st-moe,moe,moe-survey}。针对这些问题，本章构建一个融合自适应空间多尺度建模与静动态双混合专家的交通预测框架：通过数据驱动的图池化自适应构造多个空间尺度，利用尺度专家和自适应融合提取尺度特异性特征；同时使用稀疏激活的静态图专家和动态图专家分别建模显式拓扑结构与隐式时空依赖，从而在保留路网结构先验的基础上，补充由注意力机制发现的动态跨节点交互。
 
 \section{自适应空间多尺度建模与时空静动态混合专家的交通预测框架}
 
@@ -260,7 +260,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \subsection{实验设置}
 
-实验使用 6 个常用交通数据集：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。评价指标为平均绝对误差（Mean Absolute Error，MAE）、平均绝对百分比误差（Mean Absolute Percentage Error，MAPE）和均方根误差（Root Mean Squared Error，RMSE）。为便于描述，记测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点在未来 $H$ 个时间步的预测结果 $Y_\mathrm{pred}\in\mathbb{R}^{N\times H}$ 和真实值 $Y\in\mathbb{R}^{N\times H}$。各指标定义如下：
+实验使用 6 个常用交通数据集~\cite{basicts,tfb}：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。评价指标为平均绝对误差（Mean Absolute Error，MAE）、平均绝对百分比误差（Mean Absolute Percentage Error，MAPE）和均方根误差（Root Mean Squared Error，RMSE）。为便于描述，记测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点在未来 $H$ 个时间步的预测结果 $Y_\mathrm{pred}\in\mathbb{R}^{N\times H}$ 和真实值 $Y\in\mathbb{R}^{N\times H}$。各指标定义如下：
 \begin{equation}
 \mathrm{MAE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
 \left|Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right|,
@@ -720,14 +720,12 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 \end{equation}
 对稀疏交通图而言，平方级节点项主要由骨干节点注意力和动态图混合专家的全注意力主导，而自顶向下尺度混合对 $N$ 是线性的。稀疏专家激活和图池化可以降低常数因子。
 
-\textbf{资源开销。} 本节在 6 个数据集上评估本章方法与基线的资源占用。所有实验使用历史长度和预测长度均为 $12$；为保证公平比较，训练批量大小设为 $16$，推理批量大小设为 $64$。训练和推理的详细资源开销见表~\ref{tab:resource-consume}。结果表明，尽管本章方法比大多数基线包含更多可学习参数，但在 6 个数据集中的 5 个上 GPU 显存占用最低；即使在参数量最大的 PEMS08 上，其显存占用也远低于较重基线。这种效率来自稀疏激活的混合专家框架，使模型容量增加时不会带来等比例的显存开销。
-
-\begin{table}[t!]
+\begin{table}[h!]
     \centering
     \caption{本章方法与基线在训练和推理中的计算开销。Mem.(GB)、T.S. 和 I.S. 分别表示 GPU 显存、训练速度和推理速度；OOM 表示在 24 GB GPU 上显存不足。}
     % \vspace{1em}
     \label{tab:resource-consume}
-    \resizebox{\linewidth}{!}{
+    \resizebox{0.95\linewidth}{!}{
     \begin{tabular}{cc|cccccc}
          \toprule
          \textbf{方法} & \textbf{指标} & \textbf{METR-LA} & \textbf{PEMS-BAY} & \textbf{PEMS03} & \textbf{PEMS04} & \textbf{PEMS07} & \textbf{PEMS08} \\
@@ -779,19 +777,20 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     % \vspace{-1.em}
 \end{table}
 
+\textbf{资源开销。} 本节在 6 个数据集上评估本章方法与基线的资源占用。所有实验使用历史长度和预测长度均为 $12$；为保证公平比较，训练批量大小设为 $16$，推理批量大小设为 $64$。训练和推理的详细资源开销见表~\ref{tab:resource-consume}。结果表明，尽管本章方法比大多数基线包含更多可学习参数，但在 6 个数据集中的 5 个上 GPU 显存占用最低；即使在参数量最大的 PEMS08 上，其显存占用也远低于较重基线。这种效率来自稀疏激活的混合专家框架，使模型容量增加时不会带来等比例的显存开销。
 
 \subsection{可视化分析}
+
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=\linewidth]{figure/ch4-scale_gate.png}
+    \caption{SMS-MoE 在 METR-LA、PEMS-BAY 和 PEMS04 上高峰期与非高峰期时段的尺度权重可视化。高峰期权重分布在多个尺度，非高峰期权重集中在原始尺度 $S_0$。}
+    \label{fig:scale-weight}
+\end{figure}
 
 \subsubsection{空间尺度权重的可视化}
 
 为了进一步分析空间多尺度混合专家模块在推理时如何分配尺度权重，本节可视化高峰期和非高峰期时段的平均尺度权重。如图~\ref{fig:scale-weight} 所示，在非高峰期时段，三个数据集的原始尺度均持续获得主导权重。这说明当交通状态相对稳定时，空间多尺度混合专家模块主要依赖原始尺度图，因为它保留了更丰富的全局信息。相比之下，在高峰期时段，原始尺度的权重明显下降，不再占据主导地位，而其他尺度的权重上升；在 PEMS-BAY 和 PEMS04 上，这些权重还随尺度增大而增加。这一变化说明，在部分节点交通流量较大的高峰期状态下，模型会将更多权重分配给较大尺度，以突出显著的局部交通模式。上述结果表明，空间多尺度混合专家模块能够根据高峰期和非高峰期交通条件动态重新分配尺度权重，从而学习时间自适应的空间多尺度表示。
-
-\begin{figure}[t!]
-\centering
-\includegraphics[width=\linewidth]{figure/ch4-scale_gate.png}
-\caption{SMS-MoE 在 METR-LA、PEMS-BAY 和 PEMS04 上高峰期与非高峰期时段的尺度权重可视化。高峰期权重分布在多个尺度，非高峰期权重集中在原始尺度 $S_0$。}
-\label{fig:scale-weight}
-\end{figure}
 
 \subsubsection{专家路由模式的可视化}
 
@@ -812,6 +811,22 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 \label{fig:vis-routing-pems04}
 \end{figure}
 
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=\linewidth]{figure/ch4-nodeselection_PEMS-BAY_peak_vs_offfpeak.png}
+    \caption{PEMS-BAY 上高峰期与非高峰期时段的节点级选择频率。}
+    \label{fig:nodeSelect-twoMaps}
+    \end{figure}
+    
+    \begin{figure}[t!]
+    \centering
+    \includegraphics[width=0.49\linewidth]{figure/ch4-nodeselection_PEMS-BAY_diff_map.png}
+    \hfill
+    \includegraphics[width=0.49\linewidth]{figure/ch4-nodeselection_PEMS-BAY_scatter.png}
+    \caption{高峰期与非高峰期节点选择频率差异。左：高峰期聚焦主干道高流量路段，非高峰期聚焦交叉口和区域级交通；右：高峰期减非高峰期节点频率差异的散点图。}
+    \label{fig:nodeSelect-diffMap}
+\end{figure}
+
 \subsubsection{空间多尺度上下文的可视化}
 
 为了更好地理解学习到的空间尺度，本节收集空间多尺度混合专家模块在推理时构造子图时的节点选择统计。具体地，本节在高峰期和非高峰期时段分别统计每个节点被选择的频率，并标注选择频率最高的六个节点编号，如图~\ref{fig:nodeSelect-twoMaps} 所示。
@@ -819,22 +834,6 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 进一步地，本节可视化高峰期与非高峰期节点选择频率之间的差异。如图~\ref{fig:nodeSelect-diffMap} 左侧所示，在高峰期时段，被选择节点主要沿主干道分布，集中在交通流量较大的路段；而在非高峰期时段，被选择节点更倾向集中于主干道交叉口附近。这说明模型在高峰期更关注路段级交通动态，而在非高峰期则转向对区域级整体交通条件的表示。
 
 在图~\ref{fig:nodeSelect-diffMap} 右侧的散点图中，横纵坐标分别比较了归一化后的高峰期和非高峰期节点选择频率。对角线将高峰期减非高峰期选择频率的正差区域与负差区域分开：左上侧为正差，右下侧为负差。大多数点位于右下区域，说明高峰期选择集中在少数高流量路段，而非高峰期选择分布在更广泛的区域级节点上。该结果进一步说明空间多尺度混合专家模块能够根据交通状态改变节点选择范围，从而形成具有时间自适应性的空间多尺度表示。
-
-\begin{figure}[t!]
-\centering
-\includegraphics[width=\linewidth]{figure/ch4-nodeselection_PEMS-BAY_peak_vs_offfpeak.png}
-\caption{PEMS-BAY 上高峰期与非高峰期时段的节点级选择频率。}
-\label{fig:nodeSelect-twoMaps}
-\end{figure}
-
-\begin{figure}[t!]
-\centering
-\includegraphics[width=0.49\linewidth]{figure/ch4-nodeselection_PEMS-BAY_diff_map.png}
-\hfill
-\includegraphics[width=0.49\linewidth]{figure/ch4-nodeselection_PEMS-BAY_scatter.png}
-\caption{高峰期与非高峰期节点选择频率差异。左：高峰期聚焦主干道高流量路段，非高峰期聚焦交叉口和区域级交通；右：高峰期减非高峰期节点频率差异的散点图。}
-\label{fig:nodeSelect-diffMap}
-\end{figure}
 
 
 \section{本章小结}

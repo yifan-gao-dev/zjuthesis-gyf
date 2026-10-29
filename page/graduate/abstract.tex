@@ -1,5 +1,25 @@
 \cleardoublepage
 \chapternonum{摘要}
 
+时空序列预测旨在根据历史观测及其时间戳、空间位置或拓扑关系，预测未来一段时间内多个变量或空间节点的取值，是智慧城市、智能交通、能源管理和气象预报等领域的重要基础任务。现实时空数据普遍存在时间非平稳、空间非平稳、多尺度模式以及变量或节点之间分布异质等复杂特性。现有方法通常采用单一尺度表示或共享参数建模，难以同时适应不同时间状态、不同变量和不同空间区域之间的差异。针对上述问题，本文围绕时空多尺度建模和混合专家系统展开研究，分别面向一般多元时间序列预测和具有显式空间图结构的交通预测任务，从时间维度和空间维度构建递进的预测框架。
+
+首先，针对一般多元时间序列预测任务，本文提出一种融合双向时间戳依赖建模与多尺度特征提取混合专家的预测框架。该方法采用通道独立路由和稀疏门控，将不同变量动态分配给合适的专家，并通过多尺度下采样、趋势—季节分解和跨尺度融合提取多尺度时序特征；同时，利用频域可学习马氏矩阵建模变量相关性，并通过时间戳双向交叉注意力显式建模历史与未来时间戳之间的双向依赖。实验结果表明，该方法在多个真实数据集上总体取得较优预测结果，验证了时间戳先验、多尺度特征提取和变量相关建模的有效性。
+
+其次，针对具有显式空间图结构的交通预测任务，本文提出一种融合自适应空间多尺度建模与静动态双混合专家的预测框架。该方法通过图池化以数据驱动方式构造多个空间尺度，利用尺度专家和尺度自适应融合提取尺度特异性特征；同时使用稀疏激活的静态图专家和动态图专家分别建模显式拓扑结构与隐式时空依赖。实验表明，该方法在多个交通预测基准上取得较优或接近最优的结果，可视化结果进一步说明模型能够根据高峰期和非高峰期动态调整空间尺度与专家选择。
+
+综上，本文从时间维度和空间维度分别验证了多尺度建模与混合专家系统在非平稳时空序列预测中的有效性，为构建更具适应性和鲁棒性的时空预测模型提供了新的技术途径。
+
+\textbf{关键词：}时空序列预测；多元时间序列预测；交通预测；多尺度建模；混合专家系统
+
 \cleardoublepage
 \chapternonum{Abstract}
+
+Spatiotemporal forecasting aims to predict the future values of multiple variables or spatial nodes based on historical observations together with timestamps, spatial positions, or topological relations. It plays an important role in smart cities, intelligent transportation, energy management, and weather forecasting. Real-world spatiotemporal data usually exhibit temporal non-stationarity, spatial non-stationarity, multi-scale patterns, and distribution heterogeneity across variables or nodes. Existing methods often rely on single-scale representations or shared parameters, which limits their ability to adapt to different temporal states, variables, and spatial regions. To address these issues, this thesis studies spatiotemporal multi-scale modeling and mixture-of-experts systems, and develops a progressive framework from time-domain multivariate time series forecasting to graph-based traffic forecasting.
+
+First, for general multivariate time series forecasting, this thesis proposes a framework that combines bidirectional timestamp dependency modeling with a multi-scale feature extraction mixture-of-experts. The method routes different variables to specialized experts through channel-independent sparse gating, extracts multi-scale temporal features by downsampling, trend-season decomposition, and cross-scale fusion, models variable correlations in the frequency domain with a learnable Mahalanobis matrix, and explicitly captures the bidirectional dependency between historical and future timestamps via timestamp dual cross-attention. Experiments on multiple real-world datasets show that the proposed method generally achieves competitive forecasting performance.
+
+Second, for traffic forecasting with explicit spatial graph structures, this thesis proposes a framework that integrates adaptive spatial multi-scale modeling with a static-dynamic dual mixture-of-experts. The method constructs multiple spatial scales in a data-driven manner through graph pooling, extracts scale-specific features with scale experts and adaptive fusion, and jointly models explicit static topology and implicit dynamic spatiotemporal dependencies using sparsely activated static-graph and dynamic-graph experts. Experimental results on multiple traffic benchmarks demonstrate competitive or near-optimal performance, and visualization further shows that the model dynamically adjusts spatial scales and expert selection between peak and off-peak periods.
+
+Overall, this thesis validates the effectiveness of multi-scale modeling and mixture-of-experts systems for non-stationary spatiotemporal forecasting from both temporal and spatial perspectives, providing a new technical route toward more adaptive and robust spatiotemporal prediction models.
+
+\textbf{Keywords:} spatiotemporal forecasting; multivariate time series forecasting; traffic forecasting; multi-scale modeling; mixture-of-experts
