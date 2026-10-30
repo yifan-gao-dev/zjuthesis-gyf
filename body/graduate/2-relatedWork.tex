@@ -167,6 +167,25 @@ Transformer~\cite{attention} 以自注意力机制替代循环和卷积，通过
 \end{equation}
 其中 $S$ 为尺度数量，$\mathrm{Upsample}_s(\cdot)$ 将第 $s$ 个尺度表示恢复到原始时间分辨率。
 
+\begin{figure}[t!]
+    \includegraphics[width=\linewidth]{figure/ch2-pathformer-pipeline.pdf}
+    \caption{Pathformer~\cite{pathformer}架构示意图}
+    \label{fig:ch2-pathformer}
+\end{figure}
+Pathformer~\cite{pathformer} 通过多尺度分块将输入序列划分为不同长度的时间块，并在块内和块间分别建立注意力，以捕捉不同尺度上的局部语义和长程依赖。如图~\ref{fig:ch2-pathformer}所示，设第 $m$ 个尺度的时间块长度为 $p_m$，则输入序列可划分为
+\begin{equation}
+\mathbf{P}^{(m)} = \mathrm{Patchify}_{p_m}\!\left(\mathbf{X}_{1:T}\right),
+\end{equation}
+其中 $\mathbf{P}^{(m)}$ 为第 $m$ 个尺度上的时间块集合。随后，每个尺度使用独立的 Transformer 编码器提取块级表示：
+\begin{equation}
+\mathbf{H}^{(m)} = \mathrm{Transformer}_{m}\!\left(\mathbf{P}^{(m)}\right).
+\end{equation}
+为了融合不同尺度的信息，Pathformer 引入自适应路径机制，通过学习各尺度之间的连接权重，对多尺度块表示进行动态聚合：
+\begin{equation}
+\mathbf{Z}^{(m)} = \sum_{l=1}^{M} \alpha_{l}^{(m)} \mathbf{H}^{(l)},
+\end{equation}
+其中 $\alpha_{l}^{(m)}$ 为第 $l$ 个尺度到第 $m$ 个尺度的路径权重。该设计使模型能够根据输入自适应选择合适的分块尺度和跨尺度路径，在保持较低计算复杂度的同时提取多尺度时序特征。
+
 Pyraformer~\cite{pyraformer} 通过金字塔注意力在不同时间尺度上建模长程依赖，将长序列建模复杂度从平方级降低到近线性级；SCINet~\cite{scinet} 通过二分下采样树对序列进行层次化分解和交互。设输入序列在某一尺度上按奇偶位置拆分为 $\mathbf{x}_{\mathrm{odd}}$ 和 $\mathbf{x}_{\mathrm{even}}$，SCINet 的交互操作可写为
 \begin{equation}
 \mathbf{x}_{\mathrm{odd}}' = \mathbf{x}_{\mathrm{odd}} + \phi_{o}\!\left(\mathbf{x}_{\mathrm{even}}\right),
@@ -198,7 +217,7 @@ TimeMixer~\cite{timemixer} 首先通过平均池化将历史序列下采样为�
 \end{equation}
 其中 $\alpha^{(s)}$ 为尺度 $s$ 上的融合权重。该设计显式分离了不同尺度上的趋势和周期信息，但其尺度分解与混合过程通常对所有通道共享同一套参数，未区分不同变量在时间分布上的差异。
 
-Pathformer~\cite{pathformer} 根据序列特性自适应选择不同长度的分块路径；PDF~\cite{pdf} 从周期解耦的角度建模长时预测中的多周期结构。
+PDF~\cite{pdf} 从周期解耦的角度建模长时预测中的多周期结构。
 
 频域方法从另一角度刻画尺度信息。离散傅里叶变换可将时序信号映射到频域，从而显式提取周期性成分：
 \begin{equation}

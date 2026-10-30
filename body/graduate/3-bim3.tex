@@ -192,9 +192,33 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 \section{实验结果与分析}
 
+\begin{table}[t!]
+    \caption{多元时间序列数据集统计信息}
+    \label{tab:ch3-datasets}
+    % \footnotesize
+    \resizebox{\linewidth}{!}{
+    \begin{tabular}{ccccccc}
+    \toprule
+        \textbf{数据集} & \textbf{领域} & \textbf{采样频率} & \textbf{样本数} & \textbf{变量数} & \textbf{划分}  & \textbf{描述}\\ 
+    \midrule
+        Electricity  & 电力 & 1小时    & 26,304      & 321      & 7:1:2 & 记录 2012 年至 2014 年每小时电力消耗，单位为 kWh\\
+        ETTh1        & 电力 & 1小时     & 14,400      & 7        & 6:2:2 & 电力变压器 1，包含油温、有用负荷等 7 项指标\\
+        ETTh2        & 电力 & 1小时    & 14,400      & 7        & 6:2:2 & 电力变压器 2，包含油温、有用负荷等 7 项指标\\
+        ETTm1        & 电力 & 15分钟   & 57,600      & 7        & 6:2:2 & 电力变压器 1，包含油温、有用负荷等 7 项指标\\
+        ETTm2        & 电力 & 15分钟   & 57,600      & 7        & 6:2:2 & 电力变压器 2，包含油温、有用负荷等 7 项指标\\
+        Exchange & 经济    & 1天      & 7,588       & 8        & 7:1:2 & 收集 8 个国家的每日汇率\\
+        ILI          & 医疗      & 1周     & 966        & 7        & 7:1:2 & 美国疾病控制与预防中心记录的流感样疾病患者指标\\
+        Traffic      & 交通     & 1小时    & 17,544      & 862      & 7:1:2 & 旧金山湾区高速公路 862 个传感器测得的道路占用率\\
+        Solar        & 能源      & 10分钟   & 52,560      & 137      & 6:2:2 & 阿拉巴马州 137 个光伏电站的太阳能发电记录 \\
+        Weather      & 环境 & 10分钟   & 52,696      & 21       & 7:1:2 & 2020 年全年记录，包含 21 项气象指标\\
+    \bottomrule
+    \end{tabular}
+    }
+\end{table}
+
 \subsection{实验设置}
 
-实验使用 10 个公开真实数据集，包括 Electricity、ETTh1、ETTh2、ETTm1、ETTm2、Exchange、ILI、Solar、Traffic 和 Weather。对 ILI 数据集使用预测长度 $H\in\{24,36,48,60\}$，其余数据集使用 $H\in\{96,192,336,720\}$。为减少回看窗口对结果的影响，ILI 使用窗口长度 $96$ 和 $104$，其余数据集使用 $96$、$336$ 和 $720$，每个基线报告其最佳窗口下的结果。
+实验使用 10 个公开真实数据集，包括 Electricity、ETTh1、ETTh2、ETTm1、ETTm2、Exchange、ILI、Solar、Traffic 和 Weather。各数据集的统计信息见表~\ref{tab:ch3-datasets}。对 ILI 数据集使用预测长度 $H\in\{24,36,48,60\}$，其余数据集使用 $H\in\{96,192,336,720\}$。为减少回看窗口对结果的影响，ILI 使用窗口长度 $96$ 和 $104$，其余数据集使用 $96$、$336$ 和 $720$，每个基线报告其最佳窗口下的结果。
 
 对比方法包括 DUET~\cite{duet}、TimeLinear~\cite{timester}、PDF~\cite{pdf}、FITS~\cite{fits}、Pathformer~\cite{pathformer}、TimeMixer~\cite{timemixer}、iTransformer~\cite{itransformer}、SOFTS~\cite{softs}、PatchTST~\cite{patchtst}、Crossformer~\cite{crossformer}、TimesNet~\cite{timesnet} 和 DLinear~\cite{dlinear} 等近期方法。
 
