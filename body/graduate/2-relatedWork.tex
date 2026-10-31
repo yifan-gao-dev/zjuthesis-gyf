@@ -216,7 +216,6 @@ TimeMixer~\cite{timemixer} 首先通过平均池化将历史序列下采样为�
 \hat{\mathbf{X}} = \sum_{s=0}^{M} \alpha^{(s)} \, \mathrm{Predictor}^{(s)}\!\left(\tilde{\mathbf{S}}^{(s)} + \tilde{\mathbf{T}}^{(s)}\right),
 \end{equation}
 其中 $\alpha^{(s)}$ 为尺度 $s$ 上的融合权重。该设计显式分离了不同尺度上的趋势和周期信息，但其尺度分解与混合过程通常对所有通道共享同一套参数，未区分不同变量在时间分布上的差异。
-
 PDF~\cite{pdf} 从周期解耦的角度建模长时预测中的多周期结构。
 
 频域方法从另一角度刻画尺度信息。离散傅里叶变换可将时序信号映射到频域，从而显式提取周期性成分：
