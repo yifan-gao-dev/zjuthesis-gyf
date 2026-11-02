@@ -20,7 +20,7 @@
 f_{\theta}:\left(X,\mathcal{G}\right)\mapsto Y_\mathrm{pred}.
 \end{equation}
 
-整体框架如图~\ref{fig:ch4_framework} 所示。首先将历史观测与时刻信息编码为原始图节点嵌入；随后并行使用两个模块：空间多尺度混合专家模块通过图池化构造多个空间尺度的子图，利用尺度专家提取尺度特异性特征，并通过尺度自适应融合恢复到原始节点空间；静态—动态双混合专家模块分别使用静态图专家和动态图专家建模显式拓扑结构与隐式时空依赖。最后，门控融合模块将空间多尺度特征与静动态时空特征融合，并通过多层感知机和预测层输出未来交通数据。
+整体框架如图~\ref{fig:ch4_framework} 所示。首先将历史观测与时刻信息编码为原始图节点嵌入；随后并行使用两个模块：空间多尺度混合专家模块通过图池化构造多个空间尺度的子图，利用尺度专家提取尺度特异性特征，并通过尺度自适应融合恢复到原始节点空间；静态—动态双混合专家模块分别使用静态图专家和动态图专家建模显式拓扑结构与隐式时空依赖。最后，门控融合模块将空间多尺度特征与静动态时空特征融合，并通过 MLP 和预测层输出未来交通数据。
 
 \begin{figure}[t!]
 \centering
@@ -260,7 +260,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \subsection{实验设置}
 
-实验使用 6 个常用交通数据集~\cite{basicts,tfb}：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。评价指标为平均绝对误差（Mean Absolute Error，MAE）、平均绝对百分比误差（Mean Absolute Percentage Error，MAPE）和均方根误差（Root Mean Squared Error，RMSE）。为便于描述，记测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点在未来 $H$ 个时间步的预测结果 $Y_\mathrm{pred}\in\mathbb{R}^{N\times H}$ 和真实值 $Y\in\mathbb{R}^{N\times H}$。各指标定义如下：
+实验使用 6 个常用交通数据集~\cite{basicts}：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。评价指标为平均绝对误差（Mean Absolute Error，MAE）、平均绝对百分比误差（Mean Absolute Percentage Error，MAPE）和均方根误差（Root Mean Squared Error，RMSE）。为便于描述，记测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点在未来 $H$ 个时间步的预测结果 $Y_\mathrm{pred}\in\mathbb{R}^{N\times H}$ 和真实值 $Y\in\mathbb{R}^{N\times H}$。各指标定义如下：
 \begin{equation}
 \mathrm{MAE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
 \left|Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right|,

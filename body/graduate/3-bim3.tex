@@ -9,20 +9,20 @@
 
 \subsection{问题定义与总体框架}
 
-本章考虑一般多元时间序列预测中的单变量观测情形。设历史观测为 ${X}\in\mathbb{R}_{T\times N}$，其中 $T$ 为历史长度，$N$ 为变量数，${X}_{t,n}$ 表示第 $n$ 个变量在时刻 $t$ 的观测值。历史时间戳和未来时间戳分别记为 ${T}_{hist}$ 和 ${T}_{future}$，其编码矩阵分别为 ${E}_{hist}\in\mathbb{R}_{T\times d_{\tau}}$ 和 ${E}_{future}\in\mathbb{R}_{H\times d_{\tau}}$，$H$ 为预测长度，$d_{\tau}$ 为时间戳编码维度。模型的目标是学习映射
+本章考虑一般多元时间序列预测中的单变量观测情形。设历史观测为 ${X}\in\mathbb{R}_{T\times N}$，其中 $T$ 为历史长度，$N$ 为变量数，${X}_{t,n}$ 表示第 $n$ 个变量在时刻 $t$ 的观测值。历史时间戳和未来时间戳分别记为 ${T}_{hist}$ 和 ${T}_{future}$，其编码矩阵分别为 ${E}_{hist}\in\mathbb{R}_{T\times d_{\tau}}$ 和 ${E}_{future}\in\mathbb{R}_{H\times d_{\tau}}$，$H$ 为预测长度，$d_{\tau}$ 为时间戳编码维度。模型的目标是学习映射：
 \begin{equation}
 f_{\theta}:\left({X},{T}_{hist},{T}_{future}\right)
 \mapsto Y_\mathrm{pred}\in\mathbb{R}^{H\times N}.
 \end{equation}
 
-整体框架如图~\ref{fig:ch3_framework} 所示。模型以历史观测、历史时间戳和未来时间戳作为输入。首先对时间序列进行实例归一化~\cite{revin}，以对齐训练和测试数据的分布。随后，归一化数据分别进入两个主要模块：多尺度特征提取混合专家模块通过通道独立的路由网络，将不同变量分配到相应的多尺度专家；多变量相关建模模块在频域中利用可学习马氏矩阵提取变量之间的相关关系。最后，时间戳双向交叉注意力模块融合多尺度时序特征、相关性矩阵、归一化时间序列和时间戳，通过双向交叉注意力生成最终预测，并引入辅助约束损失。
+本章提出方法的整体框架如图~\ref{fig:ch3_framework} 所示。模型以历史观测、历史时间戳和未来时间戳作为输入。首先对时间序列进行实例归一化~\cite{revin}，以对齐训练和测试数据的分布。随后，归一化数据分别进入两个主要模块：多尺度特征提取混合专家模块通过通道独立的路由网络，将不同变量分配到相应的多尺度专家；多变量相关建模模块在频域中利用可学习马氏矩阵提取变量之间的相关关系。最后，时间戳双向交叉注意力模块融合多尺度时序特征、相关性矩阵、归一化时间序列和时间戳，通过双向交叉注意力生成最终预测，并引入辅助约束损失。
 
 % 图3.1 本章方法总体框架图（占位）
 
 \begin{figure}[t!]
 \centering
 \includegraphics[width=\linewidth]{figure/bim3-pipeline.pdf}
-\caption{多尺度时序混合专家与双向时间戳依赖建模的多元时间序列预测框架图}
+\caption{多尺度时序混合专家与双向时间戳依赖建模的多元时序预测框架图}
 \label{fig:ch3_framework}
 \end{figure}
 
@@ -62,14 +62,14 @@ v_i, & v_i \ \mbox{为}\ {v} \ \mbox{的前}\ k\ \mbox{个最大元素},\\
 X_n^{i}=\mathrm{AvgPool}_s\!\left(X_n\right),
 \qquad i=0,1,\ldots,M,
 \end{equation}
-其中 $X_n^{(0)}=X_n$，保留最细粒度的时间变化；$X_n^{M}$ 表示最粗粒度的宏观信息。由于季节项和趋势项在时间序列分析中具有不同性质~\cite{autoformer,1990STL}，对每个尺度进行趋势—季节分解：
+其中 $X_n^{(0)}=X_n$，保留最细粒度的时间变化；$X_n^{M}$ 表示最粗粒度的宏观信息。由于季节项和趋势项在时间序列分析中具有不同性质~\cite{autoformer,1990STL}，对每个尺度进行趋势—季节分解并得到所有尺度的季节项以及对应的趋势项：
 \begin{equation}
 {s}_n^{i},{t}_n^{i}=\mathrm{SeriesDecomp}\!\left(X_n^{i}\right),
 \qquad i=0,\ldots,M,
 \end{equation}
 其中 ${s}_n^{i}$ 为季节项，${t}_n^{i}$ 为趋势项。
 
-本章使用带 GELU 激活的前馈网络分别融合季节项和趋势项，使不同尺度之间能够进行信息交互。考虑到季节项在较低尺度上具有更明显特征，而趋势项在较高尺度上更突出，本章参考 TimeMixer~\cite{timemixer} 的做法，对季节项采用自底向上的融合策略，对趋势项采用自顶向下的融合策略：
+本章使用带 GELU~\cite{gelu} 激活的前馈网络分别融合季节项和趋势项，使不同尺度之间能够进行信息交互。考虑到季节项在较低尺度上具有更明显特征，而趋势项在较高尺度上更突出，本章参考 TimeMixer~\cite{timemixer} 的做法，对季节项采用自底向上的融合策略，对趋势项采用自顶向下的融合策略：
 \begin{equation}
 {s}_n^{i}\leftarrow {s}_n^{i}+\mathrm{FFN}_{{seas}}^{i}\!\left({s}_n^{(i-1)}\right),
 \qquad i=1,\ldots,M,
@@ -78,7 +78,7 @@ X_n^{i}=\mathrm{AvgPool}_s\!\left(X_n\right),
 {t}_n^{i}\leftarrow {t}_n^{i}+\mathrm{FFN}_{{trend}}^{i}\!\left({t}_n^{(i+1)}\right),
 \qquad i=M-1,\ldots,0.
 \end{equation}
-随后将同一尺度上的融合季节项与趋势项相加，并投影到相同隐空间。第 $e$ 个专家生成的时序特征为
+随后将同一尺度上的融合季节项与趋势项相加，并投影到相同隐空间用来混合特征信息。第 $e$ 个专家生成的时序特征为：
 \begin{equation}
 {h}_n^{(e)}=\sum_{i=0}^{M}{W}_{{mix}}^{i}\left({s}_n^{i}+{t}_n^{i}\right),
 \end{equation}
@@ -96,11 +96,11 @@ X_n^{i}=\mathrm{AvgPool}_s\!\left(X_n\right),
 \begin{equation}
 {a}_n=\left|\mathrm{rFFT}\!\left(X_n\right)\right|.
 \end{equation}
-然后利用可学习马氏矩阵~\cite{hinton_2004_maha} 度量任意两个变量在频域中的距离：
+其中 ${a}_n\in\mathbb{R}^{T/2}$ 表示变量 $n$ 在 $T/2$ 维频域空间中的坐标。然后利用可学习马氏矩阵~\cite{hinton_2004_maha} 度量任意两个变量在频域中的距离：
 \begin{equation}
 D_{i,j}=\left({a}_i-{a}_j\right)^{\top}{U}\left({a}_i-{a}_j\right),
 \end{equation}
-其中 ${U}$ 为可学习半正定矩阵。距离越小，表示两个变量的频域模式越接近。将距离矩阵归一化后，得到变量相关性概率矩阵 ${P}\in\mathbb{R}^{N\times N}$：
+其中 ${U}\in\mathbb{R}^{T/2\times T/2}$ 为可学习半正定矩阵。该过程以较一般且轻量的方式自适应地度量变量相关性。距离越小，表示两个变量的频域模式越接近。进一步将距离矩阵归一化到 $[0,1]$，得到变量相关性概率矩阵 ${P}\in\mathbb{R}^{N\times N}$：
 \begin{equation}
 P_{i,j}=
 \left\{
@@ -112,9 +112,9 @@ P_{i,j}=
 \qquad
 k_{i,j}=\frac{1}{D_{i,j}},
 \end{equation}
-其中 $\epsilon\in(0,1)$ 为缩放系数，$P_{i,j}$ 表示变量 $j$ 对变量 $i$ 有用的概率。
+其中 $k_{i,j}=1/D_{i,j}$ 表示两个变量的相关程度，$\epsilon\in(0,1)$ 为缩放系数，用于避免不同变量之间绝对相关性的影响；$P_{i,j}$ 表示变量 $j$ 对变量 $i$ 有用的概率。
 
-\textbf{重参数化。} 为保留相关变量的作用并减少不相关变量的影响，本章在概率矩阵 ${P}$ 上执行伯努利重采样，得到布尔相关性掩码 $\mathcal{M}_{{cor}}\in\{0,1\}^{N\times N}$。为保证梯度能够传播，使用 Gumbel-Softmax 重参数化技术~\cite{jang2017categorical}。
+\textbf{重参数化。} 为保留相关变量的作用并减少不相关变量的影响，本章在概率矩阵 ${P}$ 上执行伯努利重采样，得到布尔相关性掩码 $\mathcal{M}_{{cor}}\in\{0,1\}^{N\times N}$。为保证梯度能够传播，使用 Gumbel-Softmax 重参数化技术~\cite{jang2017categorical} 对离散采样过程进行可微松弛，从而在训练过程中端到端地学习变量间的稀疏相关结构。
 
 \begin{figure}[ht!]
     \centering
@@ -133,19 +133,9 @@ e_{\mathrm{year}}=\frac{y-y_{\min}}{y_{\max}-y_{\min}},
 \end{equation}
 其中 $y_{\min}$ 和 $y_{\max}$ 分别为数据集中年份的最小值和最大值。对周期为 $P$ 的周期项 $v$，使用正弦和余弦编码：
 \begin{equation}
-e_{v}=\left[\sin\!\left(\frac{2\pi v}{P}\right), \cos\!\left(\frac{2\pi v}{P}\right)\right].
+e_{v}=\mathrm{concat}\left[\sin\!\left(\frac{2\pi v}{P}\right), \cos\!\left(\frac{2\pi v}{P}\right)\right].
 \end{equation}
-本章分别对月份、年内日、小时、分钟和星期进行编码，周期分别为 $12$、$366$、$24$、$60$ 和 $7$。历史时间戳和未来时间戳分别编码为 ${E}^{hist}$ 和 ${E}^{future}$。
-
-时间戳编码方法的完整定义如下。对于形如 $t=[\text{年},\text{月},\text{日},\text{时},\text{分}]$ 的时间戳，首先对年份项进行线性编码，并根据数据集中的最小年份和最大年份将其归一化到 $[0,1]$：
-\begin{equation}
-t_{\mathrm{year}}=\frac{\mathrm{year}-\mathrm{min\_year}}{\mathrm{max\_year}-\mathrm{min\_year}}.
-\end{equation}
-对周期为 $T_p$ 的周期项 $x$，使用正弦和余弦函数进行编码：
-\begin{equation}
-t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\frac{2\pi x}{T_p}\right)\right].
-\end{equation}
-周期项包括月份、年内日、小时、分钟和星期，其周期分别为 $12$、$366$、$24$、$60$ 和 $7$。得到线性项和周期项的编码后，按照“年、月、日、时、分、星期”的顺序进行拼接，作为该时间戳的最终编码。
+周期项包括月份、年内日、小时、分钟和星期进行编码，周期分别为 $12$、$366$、$24$、$60$ 和 $7$。历史时间戳和未来时间戳分别编码为 ${E}^{hist}$ 和 ${E}^{future}$。得到线性项和周期项的编码后，按照“年、月、日、时、分、星期”的顺序进行拼接，作为每个时间戳的最终编码。
 
 为捕捉历史与未来时间戳之间的双向依赖，模块包含两个对称的交叉注意力分支，即前视层和回顾层。对第 $i$ 个尺度，前视层以历史时间戳嵌入作为查询、未来时间戳嵌入作为键和值，输出未来上下文特征；回顾层以未来时间戳嵌入作为查询、历史时间戳嵌入作为键和值，输出历史上下文特征。通过这种双向交叉注意力，时间依赖先通过时间戳交互被捕获，再被融入时间序列数据中，为预测提供额外上下文。
 
@@ -155,14 +145,14 @@ t_x=\mathrm{concat}\!\left[\sin\!\left(\frac{2\pi x}{T_p}\right), \cos\!\left(\f
 \end{equation}
 其中 ${W}_p$ 将特征维度映射为预测长度 $H$。
 
-\textbf{时间戳约束融合。} 对每个尺度 $i$，将前视层得到的时间戳特征与归一化历史序列拼接，并使用轻量多层感知机（Multilayer Perceptron，MLP）生成约束权重：
+\textbf{时间戳约束融合。} 在获得前视层时间戳特征 $\bar{\mathcal{X}}_f=\{\bar{X}_f^{i}\mid i=0,\ldots,M\}$ 和回顾层时间戳特征 $\hat{\mathcal{X}}_r=\{\hat{X}_r^{i}\mid i=0,\ldots,M\}$ 后，本章对归一化历史数据 $X_{norm}$ 进行下采样，得到与各尺度对应的多尺度历史序列。对每个尺度 $i$，将前视层时间戳特征 $\bar{X}_f^{i}$ 嵌入到归一化历史序列 $X_{norm}^{i}$ 中，并使用轻量 MLP 融合前视时间戳特征与时间序列数据。该过程不仅将未来上下文注入历史序列，还在数据上引入时间戳感知约束。约束以权重形式保留，用于表示时间序列数据与时间戳特征之间的相对重要程度，从而动态调整二者对预测的贡献。进一步地，将历史区间得到的约束传播到未来区间，通过对数据项预测 $\hat{X}_{data}$ 和回顾层特征 $\hat{X}_r^{i}$ 进行加权融合实现：
 \begin{equation}
 {w}^{i}=\mathrm{MLP}\!\left(\bar{X}_f^{i}\oplus{X}_{norm}^{i}\right),
 \end{equation}
 \begin{equation}
 \hat{Y}^{i}={w}^{i}\odot\left(\hat{X}_{data}\oplus\hat{X}_r^{i}\right),
 \end{equation}
-其中 $\bar{X}_f^{i}$ 为前视层特征，$\hat{X}_r^{i}$ 为回顾层特征，$\oplus$ 表示拼接，$\odot$ 表示逐元素乘法。约束权重用于动态调整时间序列数据和未来时间戳信息对预测的贡献。
+其中 $\bar{X}_f^{i}$ 为前视层特征，$\hat{X}_r^{i}$ 为回顾层特征，${w}^{i}\in\mathbb{R}^{N\times 2}$ 为约束权重，$\hat{Y}^{i}\in\mathbb{R}^{H\times N}$ 编码时间序列与时间戳之间的加权关系，$\oplus$ 表示拼接，$\odot$ 表示逐元素乘法。
 
 \textbf{预测输出与辅助损失。} 在所有尺度上重复上述过程后，得到数据项预测 $\hat{X}_{data}$ 和多尺度时间戳特征 $\hat{X}_{stamp}$。对数据项进行逆实例归一化，得到最终预测：
 \begin{equation}
@@ -181,11 +171,11 @@ Y_\mathrm{pred}=\mathrm{DeNorm}\!\left(\hat{X}_{data}\right).
 \begin{equation}
 V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 \end{equation}
-该隐向量刻画了时间戳编码与时间序列数据编码之间的特征距离。通过最小化这一特征距离，可以增强时间戳与时间序列之间的隐式相关性。时间戳约束损失定义为
+该隐向量刻画了时间戳编码与时间序列数据编码之间的特征距离。通过最小化这一特征距离，可以增强时间戳与时间序列之间的隐式相关性。时间戳约束损失定义为：
 \begin{equation}
 \mathcal{L}_{\mathrm{constraint}}=\epsilon_c\,\mathrm{mean}\!\left(\left|V_{cons}\right|\right),
 \end{equation}
-其中 $\epsilon_c$ 为人工调节的约束强度系数。该损失鼓励模型将时间戳特征和先验上下文纳入预测过程，从而在训练中施加时间戳感知约束。为平衡专家负载，另加入重要性损失 $\mathcal{L}_{\mathrm{importance}}$~\cite{moe}。最终总损失为
+其中 $\epsilon_c$ 为人工调节的约束强度系数。该损失鼓励模型将时间戳特征和先验上下文纳入预测过程，从而在训练中施加时间戳感知约束。为平衡专家负载，另加入重要性损失 $\mathcal{L}_{\mathrm{importance}}$~\cite{moe}。最终总损失函数为：
 \begin{equation}
 \mathcal{L}=\mathcal{L}_{\mathrm{main}}+\mathcal{L}_{\mathrm{constraint}}+\mathcal{L}_{\mathrm{importance}}.
 \end{equation}
@@ -218,7 +208,7 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 \subsection{实验设置}
 
-实验使用 10 个公开真实数据集，包括 Electricity、ETTh1、ETTh2、ETTm1、ETTm2、Exchange、ILI、Solar、Traffic 和 Weather。各数据集的统计信息见表~\ref{tab:ch3-datasets}。对 ILI 数据集使用预测长度 $H\in\{24,36,48,60\}$，其余数据集使用 $H\in\{96,192,336,720\}$。为减少回看窗口对结果的影响，ILI 使用窗口长度 $96$ 和 $104$，其余数据集使用 $96$、$336$ 和 $720$，每个基线报告其最佳窗口下的结果。
+实验使用 10 个公开真实数据集~\cite{tfb}，包括 Electricity、ETTh1、ETTh2、ETTm1、ETTm2、Exchange、ILI、Solar、Traffic 和 Weather。各数据集的统计信息见表~\ref{tab:ch3-datasets}。对 ILI 数据集使用预测长度 $H\in\{24,36,48,60\}$，其余数据集使用 $H\in\{96,192,336,720\}$。为减少回看窗口对结果的影响，ILI 使用窗口长度 $96$ 和 $104$，其余数据集使用 $96$、$336$ 和 $720$，每个基线报告其最佳窗口下的结果。
 
 对比方法包括 DUET~\cite{duet}、TimeLinear~\cite{timester}、PDF~\cite{pdf}、FITS~\cite{fits}、Pathformer~\cite{pathformer}、TimeMixer~\cite{timemixer}、iTransformer~\cite{itransformer}、SOFTS~\cite{softs}、PatchTST~\cite{patchtst}、Crossformer~\cite{crossformer}、TimesNet~\cite{timesnet} 和 DLinear~\cite{dlinear} 等近期方法。
 

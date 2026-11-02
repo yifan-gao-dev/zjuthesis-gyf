@@ -141,7 +141,23 @@ Transformer~\cite{attention} 以自注意力机制替代循环和卷积，通过
 \end{equation}
 标准自注意力的时间和空间复杂度均为 $O(L^{2} d_m)$，其中 $L$ 为序列长度。当预测步长较大时，长序列带来的计算开销和内存占用成为 Transformer 应用于时序预测的主要瓶颈。
 
-针对长序列预测的计算复杂度和长程依赖建模问题，Informer~\cite{informer} 通过稀疏注意力降低复杂度，并利用生成式解码器一次性输出未来多个时间步；Autoformer~\cite{autoformer} 引入序列分解和自相关机制，显式建模趋势项与周期项。Autoformer 的序列分解可近似表示为
+\begin{figure}[t!]
+    \includegraphics[width=\linewidth]{figure/ch2-informer-pipeline.pdf}
+    \caption{Informer~\cite{informer} 框架示意图}
+    \label{fig:ch2-informer}
+\end{figure}
+针对长序列预测的计算复杂度和长程依赖建模问题，Informer~\cite{informer}（图\ref{fig:ch2-informer}）提出概率稀疏自注意力机制。该机制首先根据查询向量与键向量分布的稀疏性度量选择少量重要查询，仅对这些查询计算注意力，从而将注意力复杂度由 $O(L^{2})$ 降低至 $O(L\log L)$。设 $\bar{\mathbf{Q}}$ 为筛选后的重要查询矩阵，则概率稀疏自注意力机制注意力可表示为
+\begin{equation}
+\mathrm{Attention}\!\left(\bar{\mathbf{Q}},\mathbf{K},\mathbf{V}\right)
+=\mathrm{Softmax}\!\left(\frac{\bar{\mathbf{Q}}\mathbf{K}^{\top}}{\sqrt{d_k}}\right)\mathbf{V}.
+\end{equation}
+此外，Informer 在编码器中引入自注意力蒸馏操作，通过一维卷积和最大池化逐步降低序列长度：
+\begin{equation}
+\mathbf{X}_{j+1}^{\mathrm{t}}=\mathrm{MaxPool}\!\left(\mathrm{ELU}\!\left(\mathrm{Conv1d}\!\left(\mathbf{X}_{j}^{\mathrm{t}}\right)\right)\right),
+\end{equation}
+从而在保留主要时序信息的同时进一步压缩计算量。在解码端，Informer 采用生成式解码器，将起始令牌与历史序列拼接后一次性输出未来多个时间步，避免了传统自回归解码中的误差累积。
+
+Autoformer~\cite{autoformer} 引入序列分解和自相关机制，显式建模趋势项与周期项。Autoformer 的序列分解可近似表示为
 \begin{equation}
 \mathbf{X}_{\mathrm{trend}} = \mathrm{AvgPool}\!\left(\mathrm{Padding}\!\left(\mathbf{X}\right)\right),
 \qquad
@@ -226,7 +242,7 @@ PDF~\cite{pdf} 从周期解耦的角度建模长时预测中的多周期结构�
 \begin{equation}
 \mathbf{x}_t = \frac{1}{T} \sum_{k=0}^{T-1} \mathcal{F}(\mathbf{x})_k \, e^{\mathrm{i}\, 2\pi k t / T},
 \end{equation}
-其中 $\mathrm{i}$ 为虚数单位。低频分量通常对应趋势和长周期模式，高频分量通常对应噪声和局部波动。FITS~\cite{fits} 利用低通滤波保留主要频域分量，再通过逆傅里叶变换恢复时域预测，在极少量参数下实现高效预测；FreTS~\cite{frets} 使用频域多层感知机直接在复数频域中提取周期模式；FilterNet~\cite{filternet} 通过可学习频率滤波器直接对时域信号进行滤波。频域建模的优势在于能够以较低计算成本捕捉长周期依赖，但现有时间多尺度方法通常对不同通道共享尺度划分和参数，难以充分表达不同变量之间的时间分布差异。
+其中 $\mathrm{i}$ 为虚数单位。低频分量通常对应趋势和长周期模式，高频分量通常对应噪声和局部波动。FITS~\cite{fits} 利用低通滤波保留主要频域分量，再通过逆傅里叶变换恢复时域预测，在极少量参数下实现高效预测；FreTS~\cite{frets} 使用频域多层感知机（Multilayer Perceptron，MLP）直接在复数频域中提取周期模式；FilterNet~\cite{filternet} 通过可学习频率滤波器直接对时域信号进行滤波。频域建模的优势在于能够以较低计算成本捕捉长周期依赖，但现有时间多尺度方法通常对不同通道共享尺度划分和参数，难以充分表达不同变量之间的时间分布差异。
 
 \section{交通流预测中的图神经网络方法}
 
@@ -246,7 +262,12 @@ PDF~\cite{pdf} 从周期解耦的角度建模长时预测中的多周期结构�
 \end{equation}
 其中 $\mathbf{X}$ 为节点特征矩阵，$\mathbf{W}$ 为可学习权重，$\sigma(\cdot)$ 为激活函数。该形式可以理解为先对邻域特征进行归一化加权平均，再通过线性变换和非线性激活得到新的节点表示。
 
-STGCN~\cite{stgcn} 将图卷积与一维时序卷积交替堆叠，系统地把时空图建模引入交通预测。其时空卷积块可概括为
+\begin{figure}[t!]
+    \includegraphics[width=\linewidth]{figure/ch2-stgcn-pipeline.pdf}
+    \caption{STGCN~\cite{stgcn} 时间多尺度建模示意图}
+    \label{fig:ch2-stgcn}
+\end{figure}
+如图~\ref{fig:ch2-stgcn}所示，STGCN~\cite{stgcn} 将图卷积与一维时序卷积交替堆叠，系统地把时空图建模引入交通预测。其时空卷积块可概括为
 \begin{equation}
 \mathbf{H} = \Gamma_{\star \tau}\!\left(\mathrm{ReLU}\!\left(g_{\theta} \star_{\mathcal{G}} \mathbf{X}\right)\right),
 \end{equation}
@@ -286,7 +307,18 @@ ASTGCN~\cite{astgcn} 在时空卷积中引入注意力机制，对不同时间�
 \end{equation}
 其中 $\alpha_s$ 为尺度权重，可通过注意力或可学习标量获得，$\mathrm{Upsample}_s(\cdot)$ 利用 $\mathbf{S}^{(s)}$ 的转置或插值将第 $s$ 个尺度表示映射回原始节点空间。
 
-HGCN~\cite{hgcn} 基于距离邻接矩阵进行谱聚类，构造层次化空间图，并在不同尺度上分别执行时空图神经网络，以捕捉从局部道路到区域交通的不同依赖；HSTGL~\cite{hstgl} 从交通连通性和地理相关性出发学习微观图与宏观图，并通过元路径聚合融合两种语义；STPGNN~\cite{stpgnn} 通过节点特征相似度识别关键节点，并在原始图和关键节点图上联合提取特征，以降低冗余节点带来的计算和噪声影响；PyGNN~\cite{pygnn} 从图采样和图过滤的角度学习多尺度解耦表示，通过金字塔采样逐步缩小图规模；MAGNN~\cite{magnn} 则通过多尺度自适应图学习增强一般多元时间序列的空间依赖建模能力。上述方法表明，多尺度图表示有助于同时捕捉局部路网结构和区域级交通模式。然而，现有空间多尺度方法通常依赖人工先验确定尺度，且尺度数量固定，难以根据当前交通状态自适应调整并实现灵活融合。
+\begin{figure}[t!]
+    \includegraphics[width=\linewidth]{figure/ch2-stpgnn-pipeline.pdf}
+    \caption{STPGNN~\cite{stpgnn}架构示意图}
+    \label{fig:ch2-stpgnn}
+\end{figure}
+如图~\ref{fig:ch2-stpgnn}所示，STPGNN~\cite{stpgnn} 首先通过节点特征之间的相似度识别关键节点，将原始交通图压缩为一个由关键节点构成的粗粒度图，并在原始图和关键节点图上分别执行时空图卷积。设节点特征矩阵为 $\mathbf{X}\in\mathbb{R}^{N\times d}$，节点 $i$ 和节点 $j$ 之间的相似度为
+\begin{equation}
+s_{ij}=\frac{\mathbf{x}_i^{\top}\mathbf{x}_j}{\left\|\mathbf{x}_i\right\|\left\|\mathbf{x}_j\right\|},
+\end{equation}
+其中 $\mathbf{x}_i$ 和 $\mathbf{x}_j$ 分别为节点 $i$ 和节点 $j$ 的特征。选择相似度最高的若干节点作为关键节点，并由关键节点诱导子图得到关键节点邻接矩阵 $\mathbf{A}^{(p)}$。随后，模型在原始图 $\mathcal{G}$ 和关键节点图 $\mathcal{G}^{(p)}$ 上分别进行时空特征提取，并通过跨尺度融合将两类表示结合。该设计降低了冗余节点带来的计算和噪声影响，同时保留原始图细节和关键节点图上的宏观结构。
+
+其他多尺度空间建模的方法也通过先验或数据驱动的方式提取不同空间层次的特征。HGCN~\cite{hgcn} 基于距离邻接矩阵进行谱聚类，构造层次化空间图，并在不同尺度上分别执行时空图神经网络，以捕捉从局部道路到区域交通的不同依赖；HSTGL~\cite{hstgl} 从交通连通性和地理相关性出发学习微观图与宏观图，并通过元路径聚合融合两种语义；PyGNN~\cite{pygnn} 从图采样和图过滤的角度学习多尺度解耦表示，通过金字塔采样逐步缩小图规模；MAGNN~\cite{magnn} 则通过多尺度自适应图学习增强一般多元时间序列的空间依赖建模能力。上述方法表明，多尺度图表示有助于同时捕捉局部路网结构和区域级交通模式。然而，现有空间多尺度方法通常依赖人工先验确定尺度，且尺度数量固定，难以根据当前交通状态自适应调整并实现灵活融合。
 
 \section{混合专家系统}
 
@@ -324,8 +356,12 @@ h_i(\mathbf{x}) = \left(\mathbf{x} \mathbf{W}_{g}\right)_i + \mathrm{Softplus}\!
 其中 $\alpha$ 为平衡系数。稀疏激活使模型容量可以随专家数量增加而扩展，而实际计算量仅与激活的专家数量相关。在训练稳定性方面，还可以为每个专家设置容量上限，当被路由到某个专家的令牌数超过容量时，超出部分进入残差路径或继续传递给下一层，从而避免单个专家因负载过大而成为训练瓶颈。
 
 \subsection{面向时空预测的混合专家方法}
-
-时空数据中的非平稳性和分布异质性为混合专家方法提供了自然的应用场景。SMoEs~\cite{smoes} 将专家机制引入空间维度，针对空间位置差异分配不同专家，通过在卷积网络中嵌入按位置路由的专家模块提升局部差异性建模能力。在交通预测中，ST-MoE~\cite{st-moe} 通过时空混合专家进行去偏建模，以减少由数据偏差导致的预测误差；TESTAM~\cite{testam} 采用时间专家、静态图专家和动态图专家分别建模时间模式、静态路网结构和动态时空依赖。设时间专家、静态图专家和动态图专家的输出分别为 $\mathbf{H}^{\mathrm{tem}}$、$\mathbf{H}^{\mathrm{sta}}$ 和 $\mathbf{H}^{\mathrm{dyn}}$，则 TESTAM 的多专家融合可概括为
+\begin{figure}[t!]
+    \includegraphics[width=\linewidth]{figure/ch2-st-moe-pipeline.pdf}
+    \caption{ST-MoE~\cite{st-moe}架构示意图}
+    \label{fig:ch2-stmoe}
+\end{figure}
+时空数据中的非平稳性和分布异质性为混合专家方法提供了自然的应用场景。在交通预测中，ST-MoE~\cite{st-moe}（图\ref{fig:ch2-stmoe}）将空间上下文和时间上下文分别编码为节点表示与时间槽表示，通过门控网络动态选择若干时空专家，并利用专家输出的加权融合缓解数据偏差。其核心思想是让不同区域、不同时间状态下的样本由不同专家处理，从而减少单一共享模型对局部模式的偏差。ST-MoE 在空间和时间两个维度上引入稀疏门控，通过专家路由与去偏损失提升交通预测的稳定性。SMoEs~\cite{smoes} 则将专家机制引入空间维度，针对空间位置差异分配不同专家，通过在卷积网络中嵌入按位置路由的专家模块提升局部差异性建模能力。TESTAM~\cite{testam} 采用时间专家、静态图专家和动态图专家分别建模时间模式、静态路网结构和动态时空依赖。设时间专家、静态图专家和动态图专家的输出分别为 $\mathbf{H}^{\mathrm{tem}}$、$\mathbf{H}^{\mathrm{sta}}$ 和 $\mathbf{H}^{\mathrm{dyn}}$，则 TESTAM 的多专家融合可概括为
 \begin{equation}
 \hat{\mathbf{Y}} = g_{\mathrm{tem}} \mathbf{H}^{\mathrm{tem}} + g_{\mathrm{sta}} \mathbf{H}^{\mathrm{sta}} + g_{\mathrm{dyn}} \mathbf{H}^{\mathrm{dyn}},
 \end{equation}

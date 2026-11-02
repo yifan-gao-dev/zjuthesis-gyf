@@ -25,7 +25,12 @@
 \end{figure}
 在此基础上，Transformer~\cite{attention,} 的兴起进一步提升了长程时序建模能力。Informer~\cite{informer}通过稀疏注意力降低长序列建模的计算复杂度；Autoformer~\cite{autoformer}引入序列分解与自相关机制，以显式刻画趋势和周期成分；PatchTST~\cite{patchtst}将时间序列切分为若干时间块并建模块间依赖；Crossformer~\cite{crossformer}同时关注时间维度和变量维度的跨维依赖；iTransformer~\cite{itransformer}则把变量作为令牌进行处理，使注意力机制更适合建模变量间关系。与此同时，DLinear~\cite{dlinear}等线性模型表明，在部分时序预测基准上，简单线性结构同样具有较强的竞争力，促使研究者重新审视模型归纳偏置与任务特性之间的匹配。除了模型结构之外，真实时间序列中的分布漂移和非平稳性同样受到广泛关注。AdaRNN~\cite{adarnn}通过域适应缓解时序数据中的分布变化；Dish-TS~\cite{dishts}对序列分布进行显式调整；RevIN~\cite{revin}利用可逆实例归一化对齐训练和测试分布；Non-stationary Transformers~\cite{ns-trans}则通过去平稳化注意力增强模型对非平稳序列的适应性。这些工作分别从表示能力和分布稳定性两个方面提升了深度时序模型的预测性能。
 
-时间戳是时序数据中区别于普通序列数据的重要信息，能够为预测提供工作日、节假日和季节等先验上下文。部分方法直接忽略时间戳~\cite{patchtst,fits}；TimesNet~\cite{timesnet}等模型则将历史时间戳编码为位置嵌入或辅助特征；iTransformer~\cite{itransformer}进一步把时间戳作为独立令牌与观测序列共同输入注意力层。近年来，研究者开始更显式地利用时间戳。GLAFF~\cite{glaff}通过自注意力分别建模历史和未来时间戳，并生成全局—局部信息的自适应权重；TimeSter~\cite{timester}则系统讨论了时间相关特征对时序预测的影响。然而，这些方法仍然或者只关注历史时间戳，或者将历史和未来时间戳分别处理，较少显式刻画二者之间的双向依赖关系。
+\begin{figure}[t!]
+    \includegraphics[width=\linewidth]{figure/ch1-glaff-pipeline.pdf}
+    \caption{GLAFF~\cite{glaff}网络结构示意图}
+    \label{fig:ch1-glaff}
+\end{figure}
+时间戳是时序数据中区别于普通序列数据的重要信息，能够为预测提供工作日、节假日和季节等先验上下文。部分方法直接忽略时间戳~\cite{patchtst,fits}；TimesNet~\cite{timesnet}等模型则将历史时间戳编码为位置嵌入或辅助特征；iTransformer~\cite{itransformer}进一步把时间戳作为独立令牌与观测序列共同输入注意力层。近年来，研究者开始更显式地利用时间戳。TimeSter~\cite{timester}系统讨论了时间相关特征对时序预测的影响。GLAFF~\cite{glaff}（图~\ref{fig:ch1-glaff}）通过自注意力分别建模历史和未来时间戳，并生成全局—局部信息的自适应权重。然而，这些方法仍然或者只关注历史时间戳，或者将历史和未来时间戳分别处理，较少显式刻画二者之间的双向依赖关系。
 
 近年来，以大型语言模型和通用基础模型为代表的预训练方法也被引入时序预测任务。One Fits All~\cite{onefitsall}将时间序列通过分块和实例归一化转换为适合预训练语言模型处理的序列形式，利用冻结的语言模型编码时序模式；Time-LLM~\cite{timellm}通过时间序列分块与文本原型对齐，对语言模型进行重编程，使预训练知识能够迁移到时序预测任务；FoundTS~\cite{foundts}则从基准评测的角度系统比较了多种基础模型在时序预测中的表现。上述工作表明，语言模型中的序列建模能力和通用语义知识有望为时序预测提供新的表示来源，但其在时空图结构、非平稳性和任务专用归纳偏置方面仍面临适应性问题。
 
