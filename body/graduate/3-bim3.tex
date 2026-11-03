@@ -414,7 +414,7 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
     \includegraphics[width=\linewidth]{figure/ch3-lookBackVars.png}
     \caption{不同回看窗口（$L=48,96,192,336,512,720$）在 ETTh1、Electricity 和 Weather 数据集上的预测误差}
     \label{fig:ch3-lookBackVars}
-    \end{figure}
+\end{figure}
 
 \subsection{参数分析}
 为了探究本章方法中各类超参数对模型表现的影响，本章节从专家数量、尺度数量和回看窗口三个方面分析主要超参数对模型性能的影响。
@@ -425,6 +425,26 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 \textbf{回看窗口的影响。} 历史区间长度（即回看窗口长度）决定了模型可利用的过去信息量。由于本章方法选取 Transformer 和 MLP 作为模型的基本组件，本节对比了选用这两个基本组件的基线方法进行对比，包括 iTransformer、FITS、SOFTS、DLinear 和 PatchTST。为分析回看窗口长度的影响，本节变化窗口长度 $L\in\{48,96,192,336,512,720\}$ 中，并在预测长度 $F\in\{96,720\}$ 下比较评估结果。如图~\ref{fig:ch3-lookBackVars}所示，本章方法在大多数设置下均优于选取的基线方法；随着回看窗口长度增加，模型误差总体继续下降，说明本章方法能够有效利用较长历史上下文建模长程时间依赖。
 
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=\linewidth]{figure/ch3-predVis-ECL.png}
+    \caption{在 Electricity 数据集上的预测结果可视化}
+    \label{fig:ch3-predVis-Electricity}
+\end{figure}
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=\linewidth]{figure/ch3-predVis-ETTm1.png}
+    \caption{在 ETTm1 数据集上的预测结果可视化}
+    \label{fig:ch3-predVis-ETTm1}
+\end{figure}
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=\linewidth]{figure/ch3-predVis-Traffic.png}
+    \caption{在 Traffic 数据集上的预测结果可视化}
+    \label{fig:ch3-predVis-traffic}
+\end{figure}
+\subsection{预测结果可视化}
+本节将本章方法在部分数据集上的预测结果与真值进行了可视化。回看窗口长度为 96，预测长度为 96。图~\ref{fig:ch3-predVis-Electricity}、图~\ref{fig:ch3-predVis-ETTm1} 和图~\ref{fig:ch3-predVis-traffic} 依次为 Electricity、ETTm1 和 Traffic 上的预测可视化结果。真值（Ground Truth）折线为蓝色，预测（Prediction）折线为橙色。 
 
 \section{本章小结}
 
