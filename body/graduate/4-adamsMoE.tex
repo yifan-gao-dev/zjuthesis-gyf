@@ -258,22 +258,30 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     \vspace{-1.em}
 \end{table}
 
-\subsection{实验设置}
+\subsection{数据集介绍}
 
-实验使用 6 个常用交通数据集~\cite{basicts}：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。评价指标为平均绝对误差（Mean Absolute Error，MAE）、平均绝对百分比误差（Mean Absolute Percentage Error，MAPE）和均方根误差（Root Mean Squared Error，RMSE）。为便于描述，记测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点在未来 $H$ 个时间步的预测结果 $Y_\mathrm{pred}\in\mathbb{R}^{N\times H}$ 和真实值 $Y\in\mathbb{R}^{N\times H}$。各指标定义如下：
+实验使用 6 个常用交通数据集~\cite{basicts}：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。其中 METR-LA 和 PEMS-BAY 记录交通速度，其余四个数据集记录交通流量；各数据集的节点数、边数、样本数和划分比例见表~\ref{tab:statics-datasets}。实验采用 Z-score 归一化处理节点观测，利用训练集均值和标准差对验证集和测试集进行统一标准化。预测时使用输入长度和输出长度均为 $12$ 的滑动窗口构造样本，并报告第 $3$、$6$、$12$ 步及全部时间步的平均结果。
+
+\subsection{对比方法}
+
+本章选取公开代码可复现的近期基线，并按其技术路线分类。第一类为混合专家类方法，包括 TESTAM~\cite{testam} 和 ST-MoE~\cite{st-moe}，主要特点是通过不同专家分别处理时间、静态图和动态图特征。第二类为图神经网络类方法，包括 STDN~\cite{stdn}、STPGNN~\cite{stpgnn}、DGCRN~\cite{dgcrn}、MegaCRN~\cite{megacrn}、AGCRN~\cite{agcrn}、MTGNN~\cite{mtgnn}、StemGNN~\cite{stemgnn}、Graph WaveNet~\cite{gwnet}、STGCN~\cite{stgcn} 和 DCRNN~\cite{dcrnn}，其共同特点是利用图卷积、图结构学习或图注意力建模路网空间依赖。第三类为其他通用方法，包括 DUET~\cite{duet}、STID~\cite{stid} 和 ST-Norm~\cite{st-norm}，分别从聚类、时空身份嵌入和时空归一化角度提升交通预测性能。
+
+评估指标采用平均绝对误差（MAE）、平均绝对百分比误差（MAPE）和均方根误差（RMSE）。设测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点和 $H$ 个预测时间步，$Y_{\mathrm{pred}}$ 表示预测值，$Y$ 表示真实值，则指标定义为
 \begin{equation}
-\mathrm{MAE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
-\left|Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right|,
+\mathrm{MAE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{h=1}^{H}\sum_{n=1}^{N}\left|Y_{\mathrm{pred}}[k,h,n]-Y[k,h,n]\right|,
 \end{equation}
 \begin{equation}
-\mathrm{MAPE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
-\frac{\left|Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right|}{\left|Y[k,t,n]\right|}\times{100\%},
+\mathrm{MAPE}=\frac{100\%}{KHN}\sum_{k=1}^{K}\sum_{h=1}^{H}\sum_{n=1}^{N}\frac{\left|Y_{\mathrm{pred}}[k,h,n]-Y[k,h,n]\right|}{\left|Y[k,h,n]\right|},
 \end{equation}
 \begin{equation}
-\mathrm{RMSE}=\sqrt{\frac{1}{KHN}\sum_{k=1}^{K}\sum_{t=1}^{H}\sum_{n=1}^{N}
-\left(Y_\mathrm{pred}[k,t,n]-Y[k,t,n]\right)^{2}}.
+\mathrm{RMSE}=\sqrt{\frac{1}{KHN}\sum_{k=1}^{K}\sum_{h=1}^{H}\sum_{n=1}^{N}\left(Y_{\mathrm{pred}}[k,h,n]-Y[k,h,n]\right)^{2}}.
 \end{equation}
-输入历史长度和预测长度均设为 $12$，并报告第 $3$、$6$、$12$ 步及平均结果。对比方法包括 TESTAM~\cite{testam}、ST-MoE~\cite{st-moe}、STDN~\cite{stdn}、STPGNN~\cite{stpgnn}、DGCRN~\cite{dgcrn}、MegaCRN~\cite{megacrn}、AGCRN~\cite{agcrn}、MTGNN~\cite{mtgnn}、StemGNN~\cite{stemgnn}、Graph WaveNet~\cite{gwnet}、STGCN~\cite{stgcn}、DCRNN~\cite{dcrnn}、DUET~\cite{duet}、STID~\cite{stid} 和 ST-Norm~\cite{st-norm}等。实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}。
+
+\subsection{实现细节}
+
+实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}。初始学习率根据不同数据集设置为 $0.0008$ 或 $0.001$，学习率调度采用 MultiStepLR 或 CosineAnnealingLR，在指定训练阶段后降低学习率。训练轮数设置为 $100$，并采用早停机制，当验证集目标指标连续 $20$ 到 $30$ 轮未改善时停止训练。训练、验证和测试的批量大小分别根据数据规模设置为 $16$、$32$ 或 $64$。节点观测使用 Z-score 归一化，训练时使用训练集统计量，验证和测试时复用该统计量。模型选择以验证集 MAE 为准则，保存最优验证权重并在测试集上评估。实验在单张 NVIDIA RTX 4090 24GB GPU 上完成。
+
+输入历史长度和预测长度均设置为 $12$，即模型使用过去 $12$ 个时间步预测未来 $12$ 个时间步，并在第 $3$、$6$、$12$ 步及全部时间步平均结果上报告性能。
 
 \begin{table}[ht!]
     \centering
