@@ -19,17 +19,19 @@ f_{\theta}: \left(\mathbf{X}_{1:T}, \mathbf{T}_{1:T}, \mathbf{T}_{T+1:T+H}\right
 \end{equation}
 当仅需预测部分变量或部分特征时，可以令输出维度作相应缩减，而不改变问题的一般形式。实际训练时通常采用滑动窗口构造样本：从完整序列中连续截取长度为 $T+H$ 的片段，将前 $T$ 个时间步作为模型输入，后 $H$ 个时间步作为监督目标。为了消除不同变量之间的量纲和尺度差异，输入通常先按变量进行标准化。设第 $n$ 个变量历史序列的均值和标准差分别为 $\mu^{n}$ 和 $\sigma^{n}$，则标准化与逆标准化可写为
 \begin{equation}
-\tilde{x}_{t}^{n,c} = \frac{x_{t}^{n,c} - \mu^{n}}{\sigma^{n} + \epsilon}, \qquad
-x_{t}^{n,c} = \left(\sigma^{n} + \epsilon\right) \hat{x}_{t}^{n,c} + \mu^{n},
+    \tilde{x}_{t}^{n,c} = \frac{x_{t}^{n,c} - \mu^{n}}{\sigma^{n} + \epsilon},
+\end{equation}
+\begin{equation}
+    x_{t}^{n,c} = \left(\sigma^{n} + \epsilon\right) \hat{x}_{t}^{n,c} + \mu^{n},
 \end{equation}
 其中 $\epsilon$ 为避免除零的小常数。对于单步或多步回归预测，常用的平均绝对误差和均方误差分别为
 \begin{equation}
-\mathcal{L}_{\mathrm{MAE}} = \frac{1}{NHC} \sum_{n=1}^{N} \sum_{h=1}^{H} \sum_{c=1}^{C}
-\left| \hat{x}_{T+h}^{n,c} - x_{T+h}^{n,c} \right|,
+    \mathcal{L}_{\mathrm{MAE}} = \frac{1}{NHC} \sum_{n=1}^{N} \sum_{h=1}^{H} \sum_{c=1}^{C}
+    \left| \hat{x}_{T+h}^{n,c} - x_{T+h}^{n,c} \right|,
 \end{equation}
 \begin{equation}
-\mathcal{L}_{\mathrm{MSE}} = \frac{1}{NHC} \sum_{n=1}^{N} \sum_{h=1}^{H} \sum_{c=1}^{C}
-\left( \hat{x}_{T+h}^{n,c} - x_{T+h}^{n,c} \right)^{2}.
+    \mathcal{L}_{\mathrm{MSE}} = \frac{1}{NHC} \sum_{n=1}^{N} \sum_{h=1}^{H} \sum_{c=1}^{C}
+    \left( \hat{x}_{T+h}^{n,c} - x_{T+h}^{n,c} \right)^{2}.
 \end{equation}
 一般多元时间序列预测的核心难点在于：不同变量的观测分布存在差异，序列统计特性随时间发生漂移，且同一序列中往往同时包含趋势、周期和局部波动等多尺度模式。
 
@@ -159,9 +161,10 @@ Transformer~\cite{attention} 以自注意力机制替代循环和卷积，通过
 
 Autoformer~\cite{autoformer} 引入序列分解和自相关机制，显式建模趋势项与周期项。Autoformer 的序列分解可近似表示为
 \begin{equation}
-\mathbf{X}_{\mathrm{trend}} = \mathrm{AvgPool}\!\left(\mathrm{Padding}\!\left(\mathbf{X}\right)\right),
-\qquad
-\mathbf{X}_{\mathrm{season}} = \mathbf{X} - \mathbf{X}_{\mathrm{trend}},
+    \mathbf{X}_{\mathrm{trend}} = \mathrm{AvgPool}\!\left(\mathrm{Padding}\!\left(\mathbf{X}\right)\right),
+\end{equation}
+\begin{equation}
+    \mathbf{X}_{\mathrm{season}} = \mathbf{X} - \mathbf{X}_{\mathrm{trend}},
 \end{equation}
 其中趋势项通过移动平均获得，季节项通过原始序列减去趋势项得到。PatchTST~\cite{patchtst} 将时间序列切分为若干时间块，以时间块作为令牌建模局部语义，降低了自注意力所处理的令牌数量；Crossformer~\cite{crossformer} 在时间和变量两个维度上分别建立注意力，以捕捉跨维依赖；iTransformer~\cite{itransformer} 则反转注意力方向，将变量作为令牌，更适合建模变量之间的相关关系。与此同时，DLinear~\cite{dlinear} 等简单线性模型表明，在部分预测基准上，简洁结构同样具有竞争力，提示模型设计应重视任务特有的归纳偏置。
 
@@ -212,11 +215,13 @@ Pyraformer~\cite{pyraformer} 通过金字塔注意力在不同时间尺度上建
 
 TimeMixer~\cite{timemixer} 首先通过平均池化将历史序列下采样为多个时间尺度，并在每个尺度上利用移动平均将序列分解为趋势项和季节项。设第 $s$ 个尺度上的输入为 $\mathbf{X}^{(s)}$，其中 $s=0,\ldots,M$，且 $\mathbf{X}^{(0)}$ 为原始序列，则其多尺度下采样和趋势—季节分解可写为
 \begin{equation}
-\mathbf{X}^{(s)} = \mathrm{AvgPool}\!\left(\mathbf{X}^{(s-1)}\right),
-\qquad
-\mathbf{T}^{(s)} = \mathrm{AvgPool}\!\left(\mathrm{Padding}\!\left(\mathbf{X}^{(s)}\right)\right),
-\qquad
-\mathbf{S}^{(s)} = \mathbf{X}^{(s)} - \mathbf{T}^{(s)}.
+    \mathbf{X}^{(s)} = \mathrm{AvgPool}\!\left(\mathbf{X}^{(s-1)}\right),
+\end{equation}
+\begin{equation}
+    \mathbf{T}^{(s)} = \mathrm{AvgPool}\!\left(\mathrm{Padding}\!\left(\mathbf{X}^{(s)}\right)\right),
+\end{equation}
+\begin{equation}
+    \mathbf{S}^{(s)} = \mathbf{X}^{(s)} - \mathbf{T}^{(s)}.
 \end{equation}
 在 Past-Decomposable-Mixing 阶段，TimeMixer 对季节项采用自底向上的方式从细粒度到粗粒度进行混合，对趋势项采用自顶向下的方式从粗粒度到细粒度进行混合：
 \begin{equation}
