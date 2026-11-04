@@ -11,7 +11,7 @@
     \centering
     \centering
     \fbox{\includegraphics[width=\linewidth]{figure/ch4-metr-realMap.png}}
-    \caption{基于最远点采样~\cite{fps}得到三个空间尺度下的 METR-LA 传感器位置}
+    \caption{METR-LA 数据集经最远点采样~\cite{fps}后的三个空间尺度的传感器位置}
     \label{fig:ch4_sns_map}
 \end{figure}
 交通预测的主要挑战来自空间特征和时间特征的提取与融合~\cite{traffic-stf-survey,survey01,tkde-scnn}。现实交通数据通常表现出空间非平稳性，即空间模式会随空间尺度变化而变化~\cite{maup,scale-independent01,mgwr}；同时，交通数据还受到时间非平稳性影响，在不同时段呈现不同的动态模式~\cite{brockwell1991time,revin}。因此，如何有效建模多尺度空间模式，并联合刻画静态与动态时空依赖，是交通预测中尚未充分解决的问题。
@@ -19,7 +19,7 @@
 \begin{figure}[ht]
     \centering
     \fbox{\includegraphics[width=\linewidth]{figure/ch4-metr-scaleDistriDiff.png}}
-    \caption{三个空间尺度下传感器数据分布的箱线图。}
+    \caption{METR-LA 数据集三个空间尺度的传感器数据分布箱线图}
     \label{fig:ch4_sns_dist}
 \end{figure}
 首先，由空间非平稳性引起的异质空间模式仍未被充分研究。现实交通时空数据中的空间模式具有明显的非均匀性，观测数据分布会随空间尺度变化而发生漂移。为刻画这一问题，本章使用最远点采样算法~\cite{fps} 对 METR-LA 数据集构造三个空间尺度，分别保留 207、51 和 12 个节点。图~\ref{fig:ch4_sns_map} 展示了这三个尺度下的传感器位置，图~\ref{fig:ch4_sns_dist} 展示了各尺度下传感器数据分布的箱线图。可以看到，不同尺度之间的数据分布存在明显差异，说明分别建模不同尺度能够提供互补信息，也进一步说明自适应构造空间尺度并提取尺度特异性特征的必要性。现有研究虽然尝试从多尺度角度建模空间模式，但通常依赖先验知识构造尺度，且大多只考虑原图和一个额外子图两个尺度，难以支持更多尺度或灵活融合~\cite{hgcn,hstgl,stpgnn,gagnn,airformer}。
@@ -52,7 +52,7 @@ f_{\theta}:\left(X,\mathcal{G}\right)\mapsto Y_\mathrm{pred}.
 \subsection{编码器}
 \label{sec:ch4_encoder}
 
-为了增强交通数据的表达能力，编码器首先将历史数据编码为原始图节点嵌入。具体地，将历史观测 $X\in\mathbb{R}^{N\times T}$ 与时刻信息拼接，包括日内时间编码 $X_{tid}\in\mathbb{R}^{T}$ 和周内日编码 $X_{diw}\in\mathbb{R}^{T}$，并通过线性层映射到隐空间：
+为了增强交通数据的表达能力，编码器首先将历史数据编码为原始图节点嵌入。具体而言，将历史观测 $X\in\mathbb{R}^{N\times T}$ 与时刻信息拼接，包括日内时间编码 $X_{tid}\in\mathbb{R}^{T}$ 和周内日编码 $X_{diw}\in\mathbb{R}^{T}$，并通过线性层映射到隐空间：
 \begin{equation}
 X_{enc}=\mathrm{Linear}\!\left(\mathrm{concat}\!\left(X,X_{tid},X_{diw}\right)\right),
 \end{equation}
@@ -205,9 +205,10 @@ v_i, & v_i \ \mbox{为}\ v \ \mbox{的前}\ k\ \mbox{个最大元素},\\
 \end{equation}
 其中 $\gamma\sim\mathcal{N}(0,1)$。噪声项用于重采样并稳定噪声门控，Softplus 保持门控信号为正。路由完成后，$X_{enc}$ 被送入选中的 $k$ 个静态图专家，每个专家堆叠 $N_s$ 层图卷积：
 \begin{equation}
-X_{se}^1=\mathrm{GCNLayer}_0\!\left(X_{enc},\hat{\mathcal{A}}\right),
-\qquad
-X_{se}^{i+1}=\mathrm{GCNLayer}_i\!\left(X_{\mathrm{se}}^{(i)},\hat{\mathcal{A}}\right).
+    X_{se}^1=\mathrm{GCNLayer}_0\!\left(X_{enc},\hat{\mathcal{A}}\right),
+\end{equation}
+\begin{equation}
+    X_{se}^{i+1}=\mathrm{GCNLayer}_i\!\left(X_{\mathrm{se}}^{(i)},\hat{\mathcal{A}}\right).
 \end{equation}
 被选中专家的输出按门控权重聚合：
 \begin{equation}
@@ -217,9 +218,10 @@ X_{SG}=\sum_{j=1}^{k}G_j\!\left(X_{enc}\right)X_{se,j}^{N_s},
 
 \noindent\textbf{动态图混合专家\ \ } 动态图混合专家采用与静态图混合专家相同的稀疏激活结构，但其路由信号仅由 $X_{enc}$ 计算，使路由器能够自适应区分隐式时间模式，而不依赖预先给定的空间结构。被选中的动态图专家使用全自注意力提取动态时空特征：
 \begin{equation}
-X_{att}=\mathrm{SelfAttention}\!\left(X_{enc}\right),
-\qquad
-X_{de}=\mathrm{FFN}\!\left(X_{att}\right).
+    X_{att}=\mathrm{SelfAttention}\!\left(X_{enc}\right),
+\end{equation}
+\begin{equation}
+    X_{de}=\mathrm{FFN}\!\left(X_{att}\right).
 \end{equation}
 通过注意力矩阵，该机制隐式诱导动态图，并建模超出局部邻域的跨节点交互。与受静态图拓扑约束的静态图专家不同，动态图专家能够捕捉随时间演化且不局限于局部邻近关系的依赖。专家输出经门控权重聚合，得到动态图特征 $X_{DG}\in\mathbb{R}^{N\times d_D}$。最后，将静态图和动态图特征拼接：
 \begin{equation}
@@ -231,12 +233,13 @@ X_{SD}=\left[X_{SG};X_{DG}\right].
 
 通过联合建模空间与时间非平稳性，模型分别得到空间多尺度特征 $X_{SMS}\in\mathbb{R}^{N\times d_m}$ 和静动态时空特征 $X_{SD}\in\mathbb{R}^{N\times d_m}$。为自适应融合二者，本章设计门控融合网络。首先拼接 $X_{SMS}$ 和 $X_{SD}$，将拼接特征送入两层 MLP，并通过 Sigmoid 生成门控值 $g\in\mathbb{R}$：
 \begin{equation}
-logits=\mathrm{FC}_2^{\mathrm{f}}\!\left(\mathrm{ReLU}\!\left(\mathrm{FC}_1^{\mathrm{f}}\left[X_{SMS};X_{SD}\right]\right)\right),
-\qquad
-g=\mathrm{Sigmoid}\!\left(logits\right),
+    logits=\mathrm{FC}_2^{\mathrm{f}}\!\left(\mathrm{ReLU}\!\left(\mathrm{FC}_1^{\mathrm{f}}\left[X_{SMS};X_{SD}\right]\right)\right),
 \end{equation}
 \begin{equation}
-X_{fuse}=g\,X_{SMS}+\left(1-g\right)X_{SD}.
+    g=\mathrm{Sigmoid}\!\left(logits\right),
+\end{equation}
+\begin{equation}
+    X_{fuse}=g\,X_{SMS}+\left(1-g\right)X_{SD}.
 \end{equation}
 随后将融合特征与节点嵌入、时刻嵌入和可学习节点表示拼接，并通过 $M$ 层残差 MLP 进一步融合：
 \begin{equation}
@@ -265,7 +268,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \begin{table}[t!]
     \centering
-    \caption{交通数据集统计信息}
+    \caption{交通时空数据集统计信息}
     % % \vspace{-1.5em}
     % \resizebox{\linewidth}{!}{
     \begin{tabular}{c|ccccc}
@@ -287,13 +290,13 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \subsection{数据集介绍}
 
-实验使用 6 个常用交通数据集~\cite{basicts}：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。其中 METR-LA 和 PEMS-BAY 记录交通速度，其余四个数据集记录交通流量；各数据集的节点数、边数、样本数和划分比例见表~\ref{tab:statics-datasets}。实验采用 Z-score 归一化处理节点观测，利用训练集均值和标准差对验证集和测试集进行统一标准化。预测时使用输入长度和输出长度均为 $12$ 的滑动窗口构造样本，并报告第 $3$、$6$、$12$ 步及全部时间步的平均结果。
+实验使用 6 个常用交通数据集~\cite{basicts}：METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08。其中 METR-LA 和 PEMS-BAY 记录交通速度，其余四个数据集记录交通流量；各数据集的节点数、边数、样本数和划分比例见表~\ref{tab:statics-datasets}。实验采用 z-score 归一化处理节点观测，利用训练集均值和标准差对验证集和测试集进行统一标准化。预测时使用输入长度和输出长度均为 $12$ 的滑动窗口构造样本，并报告第 $3$、$6$、$12$ 步及全部时间步的平均结果。
 
 \subsection{对比方法}
 
-本章选取公开代码可复现的近期基线，并按其技术路线分类。第一类为混合专家类方法，包括 TESTAM~\cite{testam} 和 ST-MoE~\cite{st-moe}，主要特点是通过不同专家分别处理时间、静态图和动态图特征。第二类为图神经网络类方法，包括 STDN~\cite{stdn}、STPGNN~\cite{stpgnn}、DGCRN~\cite{dgcrn}、MegaCRN~\cite{megacrn}、AGCRN~\cite{agcrn}、MTGNN~\cite{mtgnn}、StemGNN~\cite{stemgnn}、Graph WaveNet~\cite{gwnet}、STGCN~\cite{stgcn} 和 DCRNN~\cite{dcrnn}，其共同特点是利用图卷积、图结构学习或图注意力建模路网空间依赖。第三类为其他通用方法，包括 DUET~\cite{duet}、STID~\cite{stid} 和 ST-Norm~\cite{st-norm}，分别从聚类、时空身份嵌入和时空归一化角度提升交通预测性能。
+为全面评估不同技术路线的方法在预测精度上的表现，本章节选择三类具有代表性的近期基线方法进行对比。第一类为混合专家类方法，包括 TESTAM~\cite{testam} 和 ST-MoE~\cite{st-moe}，主要特点是通过不同专家分别处理时间、静态图和动态图特征。第二类为图神经网络类方法，包括 STDN~\cite{stdn}、STPGNN~\cite{stpgnn}、DGCRN~\cite{dgcrn}、MegaCRN~\cite{megacrn}、AGCRN~\cite{agcrn}、MTGNN~\cite{mtgnn}、StemGNN~\cite{stemgnn}、Graph WaveNet~\cite{gwnet}、STGCN~\cite{stgcn} 和 DCRNN~\cite{dcrnn}，其共同特点是利用图卷积、图结构学习或图注意力建模路网空间依赖。第三类为其他通用方法，包括 DUET~\cite{duet}、STID~\cite{stid} 和 ST-Norm~\cite{st-norm}，分别从聚类、时空特征嵌入和时空归一化角度提升交通预测性能。
 
-评估指标采用平均绝对误差（MAE）、平均绝对百分比误差（MAPE）和均方根误差（RMSE）。设测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点和 $H$ 个预测时间步，$Y_{\mathrm{pred}}$ 表示预测值，$Y$ 表示真实值，则指标定义为
+评估指标采用平均绝对误差（MAE）、平均绝对百分比误差（Mean Absolute Percentage Error，MAPE）和均方根误差（Root Mean Square Error，RMSE）。设测试集中共有 $K$ 个样本，每个样本包含 $N$ 个节点和 $H$ 个预测时间步，$Y_{\mathrm{pred}}$ 表示预测值，$Y$ 表示真实值，则指标定义为
 \begin{equation}
 \mathrm{MAE}=\frac{1}{KHN}\sum_{k=1}^{K}\sum_{h=1}^{H}\sum_{n=1}^{N}\left|Y_{\mathrm{pred}}[k,h,n]-Y[k,h,n]\right|,
 \end{equation}
@@ -306,13 +309,13 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \subsection{实现细节}
 
-实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}。初始学习率根据不同数据集设置为 $0.0008$ 或 $0.001$，学习率调度采用 MultiStepLR 或 CosineAnnealingLR，在指定训练阶段后降低学习率。训练轮数设置为 $100$，并采用早停机制，当验证集目标指标连续 $20$ 到 $30$ 轮未改善时停止训练。训练、验证和测试的批量大小分别根据数据规模设置为 $16$、$32$ 或 $64$。节点观测使用 Z-score 归一化，训练时使用训练集统计量，验证和测试时复用该统计量。模型选择以验证集 MAE 为准则，保存最优验证权重并在测试集上评估。实验在单张 NVIDIA RTX 4090 24GB GPU 上完成。
+实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}。初始学习率根据不同数据集设置为 $0.0008$ 或 $0.001$，学习率调度采用余弦退火调度策略，在指定训练阶段后降低学习率。训练轮数设置为 $100$，并采用早停机制，当验证集目标指标连续 $20$ 到 $30$ 轮未改善时停止训练。训练、验证和测试的批量大小分别根据数据规模设置为 $16$、$32$ 或 $64$。节点观测使用 z-score 归一化，训练时使用训练集统计量，验证和测试时复用该统计量。本章节重新运行了所有基线方法的官方实现代码，最优模型选择以验证集 MAE 为准则，保存最优验证权重并在测试集上评估以保证公平对比。实验在单张 NVIDIA RTX 4090 24GB GPU 上完成。
 
 输入历史长度和预测长度均设置为 $12$，即模型使用过去 $12$ 个时间步预测未来 $12$ 个时间步，并在第 $3$、$6$、$12$ 步及全部时间步平均结果上报告性能。
 
-\begin{table}[ht!]
+\begin{table}[t!]
     \centering
-    \caption{交通预测主结果，涵盖 METR-LA、PEMS-BAY、PEMS03、PEMS04、PEMS07 和 PEMS08 数据集；最优结果加粗红色，次优结果下划线蓝色。}
+    \caption{交通时空预测主实验结果}
     \label{tab:main-res}
 \resizebox{\linewidth}{!}{
     % \begin{tabular}{cc|ccc|ccc|ccc|ccc|ccc|ccc}
@@ -414,18 +417,20 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \subsection{定量结果分析}
 
-表~\ref{tab:main-res} 给出了本章方法与各基线在 6 个交通数据集上的详细结果。整体来看，本章方法在几乎所有数据集的绝大多数预测步和平均指标上取得较优或接近最优的结果。具体而言，在 PEMS-BAY、PEMS04、PEMS07 和 PEMS08 上表现总体较优，并在 PEMS03 的 MAE 和 RMSE 指标上优于次优方法。
+表~\ref{tab:main-res} 给出了本章方法与各基线在 6 个交通数据集上的详细结果。对于每组测试，\bestres{最佳结果}加粗标红，\secondres{次佳结果}下划线标蓝。根据实验结果，可以观察到：
 
-从空间多尺度建模的角度看，与单尺度方法 DGCRN 和 STID 相比，本章方法的平均 MAE 分别下降 $4.49\%$ 和 $3.05\%$；与使用固定数量空间尺度的 STPGNN 相比，平均 MAE 下降 $9.48\%$。上述结果表明，数据驱动的多尺度空间图构造和尺度自适应融合能够更有效地处理空间尺度变化引起的分布差异。
+整体来看，本章方法在几乎所有数据集的绝大多数预测步和平均指标上取得较优或接近最优的结果。具体而言，在 PEMS-BAY、PEMS04、PEMS07 和 PEMS08 上表现总体较优，并在 PEMS03 的 MAE 和 RMSE 指标上优于次优方法。
 
-从静动态特征学习的角度看，与通过硬选择弱融合静态和动态特征的全激活混合专家方法 TESTAM 相比，本章方法平均 MAE 下降 $5.79\%$。这说明自适应动态融合和选择性专家激活有助于同时建模静态与动态时空模式，并在不同时间状态下由专门化专家处理相应依赖。
+本章方法证明了空间多尺度建模在交通预测中的有效性。从空间多尺度建模的角度看，与单尺度方法 DGCRN 和 STID 相比，本章方法的平均 MAE 分别下降 $4.49\%$ 和 $3.05\%$；与使用固定数量空间尺度的 STPGNN 相比，平均 MAE 下降 $9.48\%$。上述结果表明，数据驱动的多尺度空间图构造和尺度自适应融合能够更有效地处理空间尺度变化引起的分布差异。
+
+本章方法突出了自适应静动态特征学习的优势。从静动态特征学习的角度看，与通过硬选择弱融合静态和动态特征的全激活混合专家方法 TESTAM 相比，本章方法平均 MAE 下降 $5.79\%$。这表明自适应、动态的特征融合有助于捕捉静动态时空模式。此外，选择性专家激活使不同时空模式能够由专门化专家处理，从而更有效地应对时间非平稳性。
 
 此外，本章方法在 METR-LA 和 PEMS03 上的 MAPE 结果相对较弱。这一现象可能源于 MAPE 对较小真值较为敏感：PEMS03 和 METR-LA 训练集第 20 百分位数分别为 $49.0$ 和 $54.6$，明显小于 PEMS-BAY、PEMS04、PEMS07 和 PEMS08 的 $61.1$、$65.0$、$115.0$ 和 $93.0$。较小数值分布会放大 MAPE，因此尽管 MAE 和 RMSE 具有竞争力，MAPE 仍可能出现偏高。
 
 
 \begin{table}[t!]
     \centering
-    \caption{消融实验，预测窗口内所有时间步结果取平均，最优结果加粗。}
+    \caption{交通时空预测方法消融实验}
     \label{tab:ablation}
     \resizebox{\linewidth}{!}{\setlength{\tabcolsep}{4pt}
     \begin{tabular}{cc|cccccc}
@@ -470,15 +475,23 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 \end{table}
 \subsection{消融实验}
 
-为验证各模块的作用，本章分别进行以下消融实验：\textbf{w/o SMS-MoE} 表示移除空间多尺度混合专家模块，\textbf{w/o SG-MoE} 表示移除静态图混合专家，\textbf{w/o DyG-MoE} 表示移除动态图混合专家，\textbf{w/o $\mathcal{L}_{moe}$} 表示移除负载均衡损失，\textbf{w/o Sk-Nodes} 表示移除骨干节点。消融结果如表~\ref{tab:ablation} 所示。
+为验证各模块的作用，本章分别进行以下消融实验：\textbf{w/o SMS-MoE} 表示移除空间多尺度混合专家模块，\textbf{w/o SG-MoE} 表示移除静态图混合专家，\textbf{w/o DyG-MoE} 表示移除动态图混合专家，\textbf{w/o $\mathcal{L}_{moe}$} 表示移除负载均衡损失，\textbf{w/o Sk-Nodes} 表示移除骨干节点。消融结果如表~\ref{tab:ablation} 所示，表中数据为预测窗口内所有时间步结果取平均，最优结果加粗。
 
-从结果中可以得到五点观察。第一，移除空间多尺度混合专家模块后，所有数据集的性能均下降；在小规模图，例如 METR-LA 上下降相对较小，而在节点较多的大规模图，例如 PEMS07 和 PEMS-BAY 上下降更为明显，说明尺度自适应多尺度建模对大规模传感网络尤为重要。第二，移除静态图混合专家后，在边数较少的数据集，例如 PEMS04 和 PEMS08 上性能下降较明显；这可能是因为当路网连通性较稀疏时，显式拓扑结构更适合由静态图卷积专家利用，而动态图专家通过注意力学习隐式图可能引入建模偏差。第三，移除动态图混合专家后，在边数较多、动态交互较强的数据集上性能下降较明显，且下降幅度通常大于移除静态图混合专家；这说明节点级全注意力动态专家能够补充静态拓扑所不能刻画的密集、时变跨节点交互。第四，移除负载均衡损失会在多数数据集上造成一致的性能下降，说明缺少该损失时专家利用率不均衡、路由可能退化。第五，移除骨干节点会在所有数据集和指标上造成轻微但一致的下降，说明骨干节点作为可学习全局原型，主要起到轻量全局协调作用，而非模型容量的主要来源。
+从结果中可以得到五点观察。第一，移除空间多尺度混合专家模块后，所有数据集的性能均下降；在小规模图，例如 METR-LA 上下降相对较小，而在节点较多的大规模图，例如 PEMS07 和 PEMS-BAY 上下降更为明显。这说明尺度自适应多尺度建模对大规模传感网络尤为重要，因为大规模网络中的空间异质性更加显著。
+
+第二，移除静态图混合专家后，在边数较少的数据集，例如 PEMS04 和 PEMS08 上性能下降较严重。可能的原因是，当路网连通性较稀疏且结构相对简单时，静态图卷积能够更有效地利用显式拓扑结构；相比之下，动态图混合专家通过注意力学习隐式图，可能没有充分利用给定的空间结构，从而引入建模偏差。
+
+第三，移除动态图混合专家后，在边数较多、动态交互较强的数据集上性能下降较明显，并且其下降幅度通常大于移除静态图混合专家。这说明基于节点级注意力的动态专家更擅长捕捉密集且随时间变化的跨节点交互，能够补充静态图专家受拓扑约束表示所缺少的动态信息。
+
+第四，移除负载均衡损失会在多数数据集上造成一致的性能下降，充分说明该损失的必要性。缺少负载均衡损失时，混合专家模型容易出现专家利用率不均衡和路由坍缩；该损失对于平衡专家负载、稳定路由机制以及保证混合专家框架有效高效运行至关重要。
+
+第五，移除骨干节点会在所有数据集和指标上造成一致但轻微的下降。作为可学习键值原型，骨干节点通过交叉注意力与多尺度特征交互；其下降幅度通常小于移除主要组件，说明骨干节点主要起到轻量全局协调作用，而不是模型容量的主要来源。
 
 \subsection{参数与模块分析}
 
 \begin{table}[t!]
     \centering
-    \caption{不同多尺度混合策略的对比，所有时间步结果取平均，最优结果加粗。}
+    \caption{交通时空预测方法在不同多尺度混合策略下的对比实验}
     \label{tab:mixing-strategy}
     \resizebox{\linewidth}{!}{
     \begin{tabular}{c|ccc|ccc|ccc}
@@ -506,7 +519,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \begin{table}[t!]
     \centering
-    \caption{不同尺度因子 $F$ 下的预测精度，所有时间步结果取平均；$S=0$ 表示不池化变体，最优结果加粗。}
+    \caption{交通时空预测方法在不同尺度因子下的对比实验}
     \label{tab:parasen-scalingFactor}
     \resizebox{\linewidth}{!}{
         \begin{tabular}{cc|ccccccc}
@@ -556,7 +569,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \begin{table}[t!]
     \centering
-    \caption{不同专家数量 $E$ 下的预测精度，$E$ 为 DyG-MoE 与 SG-MoE 的专家数，所有时间步结果取平均，最优结果加粗。}
+    \caption{交通时空预测方法在不同专家数量下的对比实验}
     \label{tab:parasen-expertNum}
     %\vspace{-.5em}
     % \resizebox{\linewidth}{!}{
@@ -607,7 +620,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \begin{table}[t!]
     \centering
-    \caption{SD-MoE 中不同激活专家数量 $k$ 下的预测精度，所有时间步结果取平均，最优结果加粗。}
+    \caption{交通时空预测方法在不同被激活专家数量下的对比实验}
     \label{tab:parasen-topK}
 
     \begin{tabular}{cc|cccc}
@@ -636,7 +649,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \begin{table}[t!]
     \centering
-    \caption{不同 $k$ 下的效率分析。Mem.(GB)、T.S. 和 I.S. 分别表示 GPU 显存、训练速度和推理速度。}
+    \caption{交通时空预测方法在不同被激活专家数量下的计算开销}
     \label{tab:efficiency}
     \begin{tabular}{cc|cccc}
     \toprule
@@ -663,7 +676,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \begin{table}[t!]
   \centering
-  \caption{长时预测结果，评估第 12、24、48、72 步及所有时间步平均值；最优结果加粗，次优结果下划线。}
+  \caption{交通时空预测方法的长时预测结果}
   
   \label{tab:long_term}
   \resizebox{\linewidth}{!}{
@@ -711,29 +724,36 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
   % \vspace{-1em}
 \end{table}
 
-\textbf{不同多尺度混合策略的对比。} 为了融合尺度专家提取的多尺度空间特征，本章采用自顶向下混合策略。其直觉是，粗尺度表示捕捉更宏观的全局交通模式，可以作为细化细尺度表示的先验。因此，将信息从粗尺度传播到细尺度，有助于在保留全局上下文的同时增强局部细节。为验证该设计，本章将自顶向下混合替换为自底向上混合和简单平均。自底向上混合从细尺度向粗尺度聚合特征，可能在全局上下文形成前压缩或平滑细粒度信号；简单平均则对所有尺度一视同仁，忽略尺度间的层次关系。如表~\ref{tab:mixing-strategy} 所示，自底向上和平均策略均导致性能下降，说明自顶向下混合更适合多尺度空间特征融合。
+\noindent\textbf{不同多尺度混合策略的对比\ \ } 为了融合尺度专家提取的多尺度空间特征，本章采用自顶向下混合策略。其直觉是，粗尺度表示捕捉更宏观的全局交通模式，可以作为细化细尺度表示的先验。因此，将信息从粗尺度传播到细尺度，有助于在保留全局上下文的同时增强局部细节。为验证该设计的合理性，本章节将自顶向下的特征混合方式，替换为自底向上的混合和简单平均两种特征混合方式。自底向上混合从细尺度向粗尺度聚合特征，可能在全局上下文形成前压缩或平滑细粒度信号；简单平均则对所有尺度一视同仁，忽略尺度间的层次关系。表~\ref{tab:mixing-strategy} 展示了选用不同混合策略的模型表现，表中数据为所有时间步结果取平均，最优结果加粗。从实验结果可以观察到，自底向上和平均策略均导致性能下降，说明自顶向下混合更适合多尺度空间特征融合。
 
-\textbf{尺度因子的影响。} 本章通过 $S=\lfloor \log_F(N)\rfloor$ 次下采样构造子图，$F$ 为尺度因子。表~\ref{tab:parasen-scalingFactor} 给出不同 $F$ 下的预测精度。当 $S=0$，即多尺度建模退化为仅在原始图上进行单尺度特征提取时，所有数据集上的性能均最弱，说明空间多尺度建模对处理空间非平稳性有效。当 $F\ge 2$ 时，模型一致优于单尺度设置，最佳结果通常出现在 $F=4$ 或 $F=6$。可能的原因是，$F=2$ 时相邻子图之间的区分度不足，尺度特征过于相似；适中 $F$ 能产生区分更明显的尺度，包括原始尺度，从而有利于多尺度特征提取。当 $F=64$ 时，模型对所有数据集只进行一次下采样，退化为两尺度自适应提取器，虽然仍优于单尺度变体，但整体不如适中尺度因子。
+\noindent\textbf{尺度因子的影响\ \ } 本章通过 $S=\lfloor \log_F(N)\rfloor$ 次下采样构造子图，$F$ 为尺度因子。表~\ref{tab:parasen-scalingFactor} 给出不同 $F$ 下，本章方法在所有时间步取平均的预测精度；最优结果加粗。当 $S=0$，即多尺度建模退化为仅在原始图上进行单尺度特征提取时，所有数据集上的性能均最弱，说明空间多尺度建模对处理空间非平稳性有效。当 $F\ge 2$ 时，模型一致优于单尺度的表现，最佳结果通常出现在 $F=4$ 或 $F=6$。可能的原因是，$F=2$ 时相邻子图之间的区分度不足，尺度特征过于相似；适中 $F$ 能产生区分更明显的尺度，包括原始尺度，从而有利于多尺度特征提取。当 $F=64$ 时，模型对所有数据集只进行一次下采样，退化为两尺度自适应提取器，虽然仍优于单尺度变体，但整体不如适中尺度因子。
 
-\textbf{专家数量的影响。} 本章通过 SG-MoE 和 DyG-MoE 建模时空模式，二者使用相同数量的专家 $E$。表~\ref{tab:parasen-expertNum} 给出不同 $E$ 下的结果。结果表明：第一，所有数据集中 $E=1$ 时性能均最低，说明单个专家不足以建模交通数据中复杂的时空依赖；第二，不同数据集的最优专家数略有不同，但最佳选择主要集中在 $E=2$ 和 $E=4$。一方面，不同数据集在时间分布和空间连通性上存在较大差异，因此最优专家数不必相同；多样化的时空模式需要不同数量的专家进行灵活建模。另一方面，增加专家数能够提升模型容量，有助于捕捉更复杂、更多样的时空模式；第三，过多的专家，例如 $E=5$，可能使选择性激活更难有效路由，导致专家分配不理想，并在多数数据集上造成性能下降。
+\noindent\textbf{专家数量的影响\ \ } 本章方法通过 SG-MoE 和 DyG-MoE 建模时空模式，二者使用相同数量的专家 $E$。本章节分析了不同专家数量对预测精度的影响。表~\ref{tab:parasen-expertNum} 给出不同 $E$ 下，本章方法在所有时间步下取平均的预测精度，最优结果加粗。结果表明：
 
-\textbf{Top-$k$ 的影响。} SD-MoE 采用 Top-$k$ 稀疏激活混合专家路由机制。本节在固定专家数量下评估不同 $k$ 值的影响，并结合表~\ref{tab:parasen-topK} 和表~\ref{tab:parasen-topK} 分析性能与计算开销的权衡。结果表明，$k=1$ 时性能较为受限，因为单个激活专家不足以覆盖多样的时空模式；当 $k\ge 3$ 时，性能进一步下降，同时计算开销增大；$k=2$ 能够在预测性能和计算开销之间取得较好平衡，在保持较强性能的同时控制显存和训练/推理开销。因此，本章默认采用 $k=2$，这也与稀疏混合专家设计中的常见设置一致。
+第一，所有数据集中 $E=1$ 时性能均最低，说明单个专家不足以建模交通数据中复杂的时空依赖。
 
-\textbf{长时预测。} 为评估模型在长时预测中的能力，本章将预测长度扩展到 $72$ 步，输入长度保持 $12$，并在第 $12$、$24$、$48$、$72$ 步及整体平均值上评估性能。如表~\ref{tab:long_term} 所示，本章方法在所有预测长度下均优于代表性基线。值得注意的是，随着预测长度增加，尤其是第 $48$ 和 $72$ 步，误差累积会使预测变得更加困难，但本章方法仍保持较稳健的性能。这说明模型在输入历史有限的情况下，仍具有较好的长时泛化能力。这种鲁棒性可归因于自适应建模框架：它能够捕捉多尺度空间依赖和异质时间模式，从而在较长预测范围内稳定预测结果。
+第二，不同数据集的最优专家数略有不同，但最佳选择主要集中在 $E=2$ 和 $E=4$。一方面，不同数据集在时间分布和空间连通性上存在较大差异，因此最优专家数不必相同；多样化的时空模式需要不同数量的专家进行灵活建模。另一方面，增加专家数能够提升模型容量，有助于捕捉更复杂、更多样的时空模式。
 
+第三，过多的专家，例如 $E=5$，可能使选择性激活更难有效路由，导致专家分配不理想，并在多数数据集上造成性能下降。
+
+\noindent\textbf{Top-$k$ 的影响\ \ } SD-MoE 采用 Top-$k$ 稀疏激活混合专家路由机制。本节在固定专家数量下评估不同 $k$ 值的影响，并结合表~\ref{tab:parasen-topK} 和表~\ref{tab:parasen-topK} 分析性能与计算开销的权衡。表~\ref{tab:parasen-topK} 中的预测精度为所有时间步上的精度取平均，最优结果加粗。表~\ref{tab:parasen-topK} 中的 Mem.(GB)、T.S. 和 I.S. 分别表示对应的 GPU 显存、训练速度和推理速度。
+
+结果表明，$k=1$ 时性能较为受限，因为单个激活专家不足以覆盖多样的时空模式；当 $k\ge 3$ 时，性能进一步下降，同时计算开销增大；$k=2$ 能够在预测性能和计算开销之间取得较好平衡，在保持较强性能的同时控制显存和训练/推理开销。因此，本章方法默认采用 $k=2$，这也与稀疏混合专家设计中的常见设置一致。
+
+\noindent\textbf{长时预测\ \ } 为评估模型在长时预测中的能力，本章将预测长度扩展到 $72$ 步，输入长度保持 $12$，并在第 $12$、$24$、$48$、$72$ 步及整体平均值上评估性能。表~\ref{tab:long_term} 展示了本章方法与各基线的长时预测结果；最优结果加粗，次优结果下划线。从结果可以观察到，本章方法在所有预测长度下均优于代表性基线。值得注意的是，随着预测长度增加，尤其是第 $48$ 和 $72$ 步，误差累积会使预测变得更加困难，但本章方法仍保持较稳健的性能。这说明模型在输入历史有限的情况下，仍具有较好的长时泛化能力。这种鲁棒性可归因于自适应建模框架：该框架能够捕捉多尺度空间依赖和异质时间模式，从而在较长预测范围内稳定预测结果。
 
 
 \subsubsection{复杂度分析}
 
-\textbf{理论复杂度。} 本节分析一次前向传播的复杂度。设 $N$ 为节点数，$T$ 为历史时间步数，$H$ 为预测长度，$|\mathcal{E}|$ 为交通图边数，$d_h$ 为隐藏维度，$d_{S,h}$ 为静态图专家的隐藏维度。主要计算开销来自空间多尺度混合专家模块和静态图混合专家中的图卷积层、骨干节点注意力、动态图混合专家中的节点级自注意力以及尺度混合。图池化、路由、门控和最终预测 MLP 属于低阶项，为简洁起见省略。整体复杂度为
+\noindent\textbf{理论复杂度\ \ } 本节分析一次前向传播的复杂度。设 $N$ 为节点数，$T$ 为历史时间步数，$H$ 为预测长度，$|\mathcal{E}|$ 为交通图边数，$d_h$ 为隐藏维度，$d_{S,h}$ 为静态图专家的隐藏维度。主要计算开销来自空间多尺度混合专家模块和静态图混合专家中的图卷积层、骨干节点注意力、动态图混合专家中的节点级自注意力以及尺度混合。图池化、路由、门控和最终预测 MLP 属于低阶项，为简洁起见省略。整体复杂度为
 \begin{equation}
-\mathcal{O}\!\left(L|\mathcal{E}|d_h^2+kN_s|\mathcal{E}|d_{S,h}^2+N_{\mathrm{sk}}Nd_{\mathrm{sk}}+kN^2E+SNd_m^2\right).
+    \mathcal{O}\!\left(L|\mathcal{E}|d_h^2+kN_s|\mathcal{E}|d_{S,h}^2+N_{\mathrm{sk}}Nd_{\mathrm{sk}}+kN^2E+SNd_m^2\right).
 \end{equation}
 对稀疏交通图而言，平方级节点项主要由骨干节点注意力和动态图混合专家的全注意力主导，而自顶向下尺度混合对 $N$ 是线性的。稀疏专家激活和图池化可以降低常数因子。
 
 \begin{table}[h!]
     \centering
-    \caption{本章方法与基线在训练和推理中的计算开销。Mem.(GB)、T.S. 和 I.S. 分别表示 GPU 显存、训练速度和推理速度；OOM 表示在 24 GB GPU 上显存不足。}
+    \caption{交通时空预测方法与基线方法在训练和推理阶段的计算开销对比}
     % \vspace{1em}
     \label{tab:resource-consume}
     \resizebox{0.95\linewidth}{!}{
@@ -788,71 +808,75 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     % \vspace{-1.em}
 \end{table}
 
-\textbf{资源开销。} 本节在 6 个数据集上评估本章方法与基线的资源占用。所有实验使用历史长度和预测长度均为 $12$；为保证公平比较，训练批量大小设为 $16$，推理批量大小设为 $64$。训练和推理的详细资源开销见表~\ref{tab:resource-consume}。结果表明，尽管本章方法比大多数基线包含更多可学习参数，但在 6 个数据集中的 5 个上 GPU 显存占用最低；即使在参数量最大的 PEMS08 上，其显存占用也远低于较重基线。这种效率来自稀疏激活的混合专家框架，使模型容量增加时不会带来等比例的显存开销。
+\noindent\textbf{资源开销\ \ } 本节在 6 个数据集上评估本章方法与基线的资源占用。所有实验使用历史长度和预测长度均为 $12$；为保证公平比较，训练批量大小设为 $16$，推理批量大小设为 $64$。训练和推理的详细资源开销见表~\ref{tab:resource-consume}，其中 Mem.(GB)、T.S. 和 I.S. 分别表示 GPU 显存、训练速度和推理速度；OOM 表示在 24 GB GPU 上显存不足。结果表明，尽管本章方法比大多数基线包含更多可学习参数，但在 6 个数据集中的 5 个上 GPU 显存占用最低；即使在参数量最大的 PEMS08 上，其显存占用也远低于较重基线。这种效率来自稀疏激活的混合专家框架，使模型容量增加时不会带来等比例的显存开销。
 
 \subsection{可视化分析}
 
 \begin{figure}[t!]
     \centering
     \includegraphics[width=\linewidth]{figure/ch4-scale_gate.png}
-    \caption{SMS-MoE 在 METR-LA、PEMS-BAY 和 PEMS04 上高峰期与非高峰期时段的尺度权重可视化。高峰期权重分布在多个尺度，非高峰期权重集中在原始尺度 $S_0$。}
+    \caption{交通时空预测方法在高峰期与非高峰期时段的尺度权重可视化}
     \label{fig:scale-weight}
 \end{figure}
 
 \subsubsection{空间尺度权重的可视化}
 
-为了进一步分析空间多尺度混合专家模块在推理时如何分配尺度权重，本节可视化高峰期和非高峰期时段的平均尺度权重。如图~\ref{fig:scale-weight} 所示，在非高峰期时段，三个数据集的原始尺度均持续获得主导权重。这说明当交通状态相对稳定时，空间多尺度混合专家模块主要依赖原始尺度图，因为它保留了更丰富的全局信息。相比之下，在高峰期时段，原始尺度的权重明显下降，不再占据主导地位，而其他尺度的权重上升；在 PEMS-BAY 和 PEMS04 上，这些权重还随尺度增大而增加。这一变化说明，在部分节点交通流量较大的高峰期状态下，模型会将更多权重分配给较大尺度，以突出显著的局部交通模式。上述结果表明，空间多尺度混合专家模块能够根据高峰期和非高峰期交通条件动态重新分配尺度权重，从而学习时间自适应的空间多尺度表示。
+为了进一步分析空间多尺度混合专家模块在推理时如何分配尺度权重，本节将训练后的模型，在测试集上高峰期和非高峰期时段的平均尺度权重进行了可视化。本节即后续章节中，将每日 $7{:}00$--$10{:}00$ 和 $16{:}00$--$19{:}00$ 视为高峰期时段，其余时间视为非高峰期时段。
+
+如图~\ref{fig:scale-weight} 所示，在非高峰期时段，三个数据集的原始尺度均持续获得主导权重。这说明当交通状态相对稳定时，空间多尺度混合专家模块主要依赖原始尺度图，因为它保留了更丰富的全局信息。相比之下，在高峰期时段，原始尺度的权重明显下降，不再占据主导地位，而其他尺度的权重上升；在 PEMS-BAY 和 PEMS04 上，这些权重还随尺度增大而增加。这一变化说明，在部分节点交通流量较大的高峰期状态下，模型会将更多权重分配给较大尺度，以突出显著的局部交通模式。上述结果表明，空间多尺度混合专家模块能够根据高峰期和非高峰期交通条件动态重新分配尺度权重，从而学习时间自适应的空间多尺度表示。
 
 \subsubsection{专家路由模式的可视化}
 
-本节在 METR-LA 和 PEMS04 上可视化静动态双混合专家模块在高峰期和非高峰期时段的专家激活模式。具体地，本节收集推理阶段 SD-MoE 的专家激活统计，并观察路由行为在高峰期和非高峰期条件下的变化。将每日 $7{:}00$--$10{:}00$ 和 $16{:}00$--$19{:}00$ 视为高峰期时段，其余时间视为非高峰期时段。如图~\ref{fig:vis-routing-metr} 和图~\ref{fig:vis-routing-pems04} 所示，在两个数据集上，动态图混合专家和静态图混合专家的激活频率在高峰期与非高峰期时段均存在明显差异。这种不同的专家路由模式表明，SD-MoE 能够根据时间交通动态自适应选择不同专家，从而在不同交通条件下自适应捕捉时空模式。
+本节在 METR-LA 和 PEMS04 上可视化静动态双混合专家模块在高峰期和非高峰期时段的专家激活模式。具体而言，本节收集推理阶段 SD-MoE 的专家激活统计，并观察路由行为在高峰期和非高峰期条件下的变化。如图~\ref{fig:vis-routing-metr} 和图~\ref{fig:vis-routing-pems04} 所示，在两个数据集上，DyG-MoE 动态图混合专家（左）和 SG-MoE 静态图混合专家（右）的激活频率在高峰期与非高峰期时段均存在明显差异。这种不同的专家路由模式表明，SD-MoE 能够根据时间交通动态自适应选择不同专家，从而在不同交通条件下自适应捕捉时空模式。
 
 \begin{figure}[t!]
 \centering
     \centering
     \includegraphics[width=\linewidth]{figure/ch4-METR-LA-routing.png}
-\caption{在 METR-LA 数据集上的 SD-MoE 专家路由热力图：DyG-MoE（左）和 SG-MoE（右）中各专家的归一化选择频率。}
+\caption{交通时空预测方法在 METR-LA 数据集上的专家路由热力图}
 \label{fig:vis-routing-metr}
 \end{figure}
 
 \begin{figure}[t!]
     \centering
     \includegraphics[width=\linewidth]{figure/ch4-PEMS04-routing.png}
-    \caption{在 PEMS04 数据集上的 SD-MoE 专家路由热力图：DyG-MoE（左）和 SG-MoE（右）中各专家的归一化选择频率。}
+    \caption{交通时空预测方法在 PEMS04 数据集上的专家路由热力图}
 \label{fig:vis-routing-pems04}
 \end{figure}
 
 \begin{figure}[t!]
     \centering
     \includegraphics[width=\linewidth]{figure/ch4-nodeselection_PEMS-BAY_peak_vs_offfpeak.png}
-    \caption{PEMS-BAY 上高峰期与非高峰期时段的节点级选择频率。}
+    \caption{交通时空预测方法在 PEMS-BAY 数据集上的节点选择频率}
     \label{fig:nodeSelect-twoMaps}
     \end{figure}
     
-    \begin{figure}[t!]
+\begin{figure}[t!]
     \centering
     \includegraphics[width=0.49\linewidth]{figure/ch4-nodeselection_PEMS-BAY_diff_map.png}
     \hfill
     \includegraphics[width=0.49\linewidth]{figure/ch4-nodeselection_PEMS-BAY_scatter.png}
-    \caption{高峰期与非高峰期节点选择频率差异。左：高峰期聚焦主干道高流量路段，非高峰期聚焦交叉口和区域级交通；右：高峰期减非高峰期节点频率差异的散点图。}
+    \caption{交通时空预测方法在 PEMS-BAY 数据集上的节点选择频率差异}
     \label{fig:nodeSelect-diffMap}
 \end{figure}
 
 \subsubsection{空间多尺度上下文的可视化}
 
-为了更好地理解学习到的空间尺度，本节收集空间多尺度混合专家模块在推理时构造子图时的节点选择统计。具体地，本节在高峰期和非高峰期时段分别统计每个节点被选择的频率，并标注选择频率最高的六个节点编号，如图~\ref{fig:nodeSelect-twoMaps} 所示。
+为了更好地理解学习到的空间尺度，本节收集了在 PEMS-BAY 数据集上，本章方法的空间多尺度混合专家模块在推理时构造子图时的节点选择统计。具体而言，本节在高峰期和非高峰期时段分别统计每个节点被选择的频率，并标注选择频率最高的六个节点编号，如图~\ref{fig:nodeSelect-twoMaps} 所示。
 
 进一步地，本节可视化高峰期与非高峰期节点选择频率之间的差异。如图~\ref{fig:nodeSelect-diffMap} 左侧所示，在高峰期时段，被选择节点主要沿主干道分布，集中在交通流量较大的路段；而在非高峰期时段，被选择节点更倾向集中于主干道交叉口附近。这说明模型在高峰期更关注路段级交通动态，而在非高峰期则转向对区域级整体交通条件的表示。
 
-在图~\ref{fig:nodeSelect-diffMap} 右侧的散点图中，横纵坐标分别比较了归一化后的高峰期和非高峰期节点选择频率。对角线将高峰期减非高峰期选择频率的正差区域与负差区域分开：左上侧为正差，右下侧为负差。大多数点位于右下区域，说明高峰期选择集中在少数高流量路段，而非高峰期选择分布在更广泛的区域级节点上。该结果进一步说明空间多尺度混合专家模块能够根据交通状态改变节点选择范围，从而形成具有时间自适应性的空间多尺度表示。
+在图~\ref{fig:nodeSelect-diffMap} 右侧子图为高峰期减非高峰期节点频率差异的散点图。散点图的横纵坐标分别比较了归一化后的高峰期和非高峰期节点选择频率。对角线将高峰期减非高峰期选择频率的正差区域与负差区域分开：左上侧为正差，右下侧为负差。大多数点位于右下区域，说明高峰期选择集中在少数高流量路段，而非高峰期选择分布在更广泛的区域级节点上。该结果进一步说明空间多尺度混合专家模块能够根据交通状态改变节点选择范围，从而形成具有时间自适应性的空间多尺度表示。
 
 
 \section{本章小结}
 
 本章针对具有显式空间图结构的交通预测问题，提出了一种融合自适应空间多尺度建模与静动态双混合专家的预测框架。与现有方法依赖距离、聚类或节点相似性等先验知识构造固定空间尺度的做法不同，本章通过图池化以数据驱动方式逐步构造多个空间尺度，并利用尺度专家和尺度自适应融合提取尺度特异性特征。该设计使模型能够根据当前交通状态动态调整不同尺度的贡献，从而同时捕捉局部路段拥堵传播和区域级宏观交通模式。
 
+在空间建模方面，本章通过图卷积和可学习骨干节点构造尺度专家，并利用散布对齐、输入自适应尺度门控和自顶向下混合实现多尺度空间特征融合。该过程不依赖固定图划分，能够根据输入节点重要性动态选择保留节点，从而保留原始图细节和粗尺度宏观结构。理论复杂度分析表明，稀疏专家激活和图池化有助于控制大规模图上的计算开销。
+
 在时空依赖建模方面，本章使用静态图混合专家和动态图混合专家分别处理显式道路拓扑和隐式时空交互。静态图专家通过图卷积保留由路网连接决定的结构先验；动态图专家通过节点级全注意力建模不受局部邻域限制且随时间变化的跨节点依赖。两个模块均采用稀疏激活和噪声门控路由，能够在不显著增加计算开销的情况下提高模型容量，并通过门控融合自适应整合空间多尺度特征和静动态时空特征。
 
-在 6 个公开交通数据集上的实验表明，本章方法在多数预测步和平均指标上取得较优或接近最优的结果。消融实验验证了空间多尺度混合专家、静态图专家、动态图专家、负载均衡损失和骨干节点的作用；尺度因子、专家数量和 Top-$k$ 分析进一步说明了尺度自适应、稀疏激活和路由参数对预测性能的影响。可视化结果也表明，模型在高峰期和非高峰期时段会选择不同的空间尺度和专家，能够学习时间自适应的空间多尺度表示。
+在 6 个公开交通数据集上的实验表明，本章方法在多数预测步和平均指标上取得较优或接近最优的结果。消融实验验证了空间多尺度混合专家、静态图专家、动态图专家、负载均衡损失和骨干节点的作用；尺度因子、专家数量和 Top-$k$ 分析进一步说明了尺度自适应、稀疏激活和路由参数对预测性能的影响。长时预测和资源开销实验表明，模型在较长预测范围内仍保持较稳定表现，同时借助稀疏激活控制了显存占用。可视化结果也表明，模型在高峰期和非高峰期时段会选择不同的空间尺度和专家，能够学习时间自适应的空间多尺度表示。
 
-综上，本章将第3章中的多尺度建模与混合专家思想从时间维度扩展到空间图结构，并进一步联合建模静态与动态时空依赖。与第3章共同构成了一套从一般多元时间序列预测到结构化时空交通预测的递进研究框架。
+综上，本章将第3章中的多尺度建模与混合专家思想从时间维度扩展到空间图结构，并进一步联合建模静态与动态时空依赖。与第3章共同构成了一套从一般多元时间序列预测到结构化时空交通预测的递进研究框架，分别验证了时空多尺度建模和混合专家系统在时间域与空间域中的有效性。

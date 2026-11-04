@@ -59,12 +59,12 @@
 \subsection{基于混合专家的时序时空预测方法}
 \begin{figure}[t!]
     \includegraphics[width=\linewidth]{figure/two-type-moe.pdf}
-    \caption{全激活混合专家（左）与稀疏激活混合专家（右）示意图~\cite{tkde-moe-llm-survey}}
+    \caption{全激活混合专家与稀疏激活混合专家示意图~\cite{tkde-moe-llm-survey}}
     \label{fig:ch1-two-moe}
 \end{figure}
 
 混合专家系统通过多个专家网络分别处理不同分布或不同模式的数据，并利用路由机制对专家输出进行加权组合。混合专家思想可追溯到早期的自适应局部专家组合方法，早期模型通常计算所有专家的输出，再通过门控网络进行加权融合，即全激活混合专家~\cite{moe-survey}。全激活 MoE 具有较好的表达能力和稳定的门控信号，但随着专家数量和模型规模增大，其计算开销会线性增长，限制其在大规模场景中的应用。
-为缓解该问题，稀疏门控 MoE~\cite{moe}通过 Top-$k$ 路由在大量专家中只激活少量专家，从而在提高模型容量的同时控制计算开销。SMoEs~\cite{smoes}将专家机制引入空间维度，以处理空间输入中的局部差异性。图~\ref{fig:ch1-two-moe} 展示了全激活与稀疏激活的混合专家的设计与数据处理方式的异同。
+为缓解该问题，稀疏门控 MoE~\cite{moe}通过 Top-$k$ 路由在大量专家中只激活少量专家，从而在提高模型容量的同时控制计算开销。SMoEs~\cite{smoes}将专家机制引入空间维度，以处理空间输入中的局部差异性。图~\ref{fig:ch1-two-moe} 展示了全激活（左）与稀疏激活（右）的混合专家的设计与数据处理方式的异同。
 
 在时空预测领域，交通数据通常受到时间非平稳性影响，现有工作或者采用静态图方法，或者采用动态图学习方法，但往往使用一组共享参数处理所有时间模式，未能对不同时间状态进行区分。混合专家方法将不同时间模式的数据路由到不同专家中进行特征提取，从而更灵活地挖掘异构时空依赖。其中，ST-MoE~\cite{st-moe}将时空混合专家用于交通预测中的去偏建模；TESTAM~\cite{testam}采用全激活的混合专家结构，使用三个 Transformer 专家分别提取时间特征、静态图特征和动态图特征，但所有专家完成计算后才进行路由，未真正实现稀疏激活。
 
@@ -85,7 +85,7 @@
 \begin{figure}[t!]
 \centering
 \includegraphics[width=\linewidth]{figure/overall.pdf}
-\caption{论文整体框架}
+\caption{论文整体框架图}
 \label{fig:framework}
 \end{figure}
 

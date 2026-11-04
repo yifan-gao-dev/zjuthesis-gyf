@@ -214,11 +214,11 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 \subsection{数据集介绍}
 
-实验使用 10 个公开真实数据集~\cite{tfb}，包括 Electricity、ETTh1、ETTh2、ETTm1、ETTm2、Exchange、ILI、Solar、Traffic 和 Weather。这些数据集覆盖电力、金融、医疗、交通、能源和环境等领域，各数据集的统计信息如表~\ref{tab:ch3-datasets} 所示。实验采用滚动预测方式构造训练、验证和测试样本：从完整序列中连续截取长度为历史窗口加预测窗口的片段，前段作为模型输入，后段作为监督目标。输入数据使用 z-score 标准化按变量进行标准化处理，测试时对预测结果进行逆标准化后再计算指标。为了公平比较，实验不采用 Drop Last 技巧~\cite{foundts}，并保留与基准方法一致的数据划分。
+实验使用 10 个公开真实数据集~\cite{tfb}，包括 Electricity、ETTh1、ETTh2、ETTm1、ETTm2、Exchange、ILI、Solar、Traffic 和 Weather。这些数据集覆盖电力、金融、医疗、交通、能源和环境等领域，各数据集的统计信息如表~\ref{tab:ch3-datasets} 所示。实验采用滑动窗口方式构造训练、验证和测试样本：从完整序列中连续截取长度为历史窗口加预测窗口的片段，前段作为模型输入，后段作为监督目标。输入数据使用 z-score 归一化按变量进行归一化处理，测试时对预测结果进行逆归一化后再计算指标。为了公平比较，实验不采用 Drop Last 技巧~\cite{foundts}，并保留与基准方法一致的数据划分。
 
 \subsection{对比方法}
 
-本章选择近期具有代表性的基线进行对比，并按技术路线分为三类。第一类为线性与轻量模型，包括 DLinear~\cite{dlinear}、FITS~\cite{fits} 和 TimeLinear~\cite{timester}，其特点是结构简单、计算开销较低，常作为时序预测的强基线。第二类为 Transformer 类模型，包括 PatchTST~\cite{patchtst}、iTransformer~\cite{itransformer}、Crossformer~\cite{crossformer}、SOFTS~\cite{softs} 和 DUET~\cite{duet}，这些方法分别通过时间块、变量令牌、跨维注意力、序列核和聚类等方式改进时序 Transformer。第三类为多尺度与频域模型，包括 TimeMixer~\cite{timemixer}、Pathformer~\cite{pathformer}、PDF~\cite{pdf} 和 TimesNet~\cite{timesnet}，它们从多尺度分解、自适应分块、周期解耦和二维时序变换等角度增强多尺度时序建模能力。
+为全面评估不同技术路线的方法在预测精度上的表现，本章节选择三类具有代表性的近期基线方法进行对比。第一类为线性与轻量模型，包括 DLinear~\cite{dlinear}、FITS~\cite{fits} 和 TimeLinear~\cite{timester}，其特点是结构简单、计算开销较低，常作为时序预测的强基线。第二类为 Transformer 类模型，包括 PatchTST~\cite{patchtst}、iTransformer~\cite{itransformer}、Crossformer~\cite{crossformer}、SOFTS~\cite{softs} 和 DUET~\cite{duet}，这些方法分别通过时间块、变量令牌、跨维注意力、序列核和聚类等方式改进时序 Transformer。第三类为多尺度与频域模型，包括 TimeMixer~\cite{timemixer}、Pathformer~\cite{pathformer}、PDF~\cite{pdf} 和 TimesNet~\cite{timesnet}，它们从多尺度分解、自适应分块、周期解耦和二维时序变换等角度增强多尺度时序建模能力。
 
 为保证公平比较，本章选择各方法在候选回看窗口下的最佳结果，并重新运行所有基线的官方代码得到实验结果。
 
@@ -234,12 +234,12 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 \subsection{实现细节}
 
-实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}，初始学习率设为 $0.02$。学习率采用分段衰减策略，即在训练初期保持初始学习率，随后按比例逐步降低。训练轮数设置为 $100$，并采用早停机制，当验证集指标连续 $10$ 轮未改善时停止训练，保存验证集上最优的模型权重。批量大小根据数据集规模在 $8$ 到 $256$ 之间调整，以避免显存溢出并提高 GPU 利用率。输入数据在训练、验证和测试阶段均使用训练集统计量进行标准化。推理时对预测结果进行逆标准化，并使用与验证集相同的数据窗口设置和指标计算方式。实验在单张 NVIDIA A100 80GB GPU 上完成。
+实验基于 PyTorch~\cite{pytorch} 实现，使用 ADAM 优化器~\cite{adam}，初始学习率设为 $0.02$。学习率采用分段衰减策略，即在训练初期保持初始学习率，随后按比例逐步降低。训练轮数设置为 $100$，并采用早停机制，当验证集指标连续 $10$ 轮未改善时停止训练，保存验证集上最优的模型权重。批量大小根据数据集规模在 $8$ 到 $256$ 之间调整，以避免显存溢出并提高 GPU 利用率。输入数据在训练、验证和测试阶段均使用训练集统计量进行归一化。推理时对预测结果进行逆归一化，并使用与验证集相同的数据窗口设置和指标计算方式。实验在单张 NVIDIA A100 80GB GPU 上完成。
 预测长度方面，ILI 数据集使用 $H\in\{24,36,48,60\}$，其余数据集使用 $H\in\{96,192,336,720\}$。回看窗口方面，ILI 数据集使用 $T\in\{96,104\}$，其余数据集使用 $T\in\{96,336,720\}$；为保证公平比较，每个基线报告其在所选回看窗口下的最佳结果。
 
 \begin{table}[ht!]
     \centering
-    \caption{多元时间序列预测主结果。ILI 数据集预测长度 $H\in\{24,36,48,60\}$，其余数据集预测长度 $H\in\{96,192,336,720\}$；最优结果加粗红色，次优结果下划线蓝色}
+    \caption{多元时间序列预测方法主实验结果}
     
     \label{tab:ch3-main-res}
     
@@ -340,28 +340,22 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 表~\ref{tab:ch3-main-res} 展示了本章方法与各基线的预测结果。对于每组测试，\textcolor{red}{\textbf{最佳结果}}加粗标红，\textcolor{blue}{\underline{次佳结果}}下划线标蓝。根据实验结果，可以观察到：
 
-本章方法在标准基准数据集上取得了最好的整体性能。在 40 组测试中，本章方法在 MAE 指标上有 36 组达到当前最优，在 MSE 指标上有 32 组达到当前最优。总体而言，本章方法在不同数据集和评价指标下持续表现出优越的预测精度。
+第一，本章方法在标准基准数据集上取得了最好的整体性能。在 40 组测试中，本章方法在 MAE 指标上有 36 组达到当前最优，在 MSE 指标上有 32 组达到当前最优。总体而言，本章方法在不同数据集和评价指标下持续表现出优越的预测精度。
 
-本章方法体现了在预测过程中引入时间戳约束的优势。与不利用时间戳信息的 PatchTST 相比，本章方法将 MSE 降低 $4.93\%$，MAE 降低 $6.42\%$；与仅将时间戳作为普通输入的 iTransformer 相比，MSE 降低 $11.29\%$，MAE 降低 $10.74\%$；与显式建模时间戳的 TimeLinear 相比，MSE 降低 $12.86\%$，MAE 降低 $9.51\%$。这些结果表明，时间戳双向交叉注意力模块能够通过历史与未来时间戳的交互有效捕获双向时间依赖，并利用时间戳约束提升预测性能。
+第二，本章方法体现了在预测过程中引入时间戳约束的优势。与不利用时间戳信息的 PatchTST 相比，本章方法将 MSE 降低 $4.93\%$，MAE 降低 $6.42\%$；与仅将时间戳作为普通输入的 iTransformer 相比，MSE 降低 $11.29\%$，MAE 降低 $10.74\%$；与显式建模时间戳的 TimeLinear 相比，MSE 降低 $12.86\%$，MAE 降低 $9.51\%$。这些结果表明，时间戳双向交叉注意力模块能够通过历史与未来时间戳的交互有效捕获双向时间依赖，并利用时间戳约束提升预测性能。
 
-本章方法在分布漂移和多样数据分布条件下保持稳健的性能。与当前多尺度时间序列预测模型 TimeMixer 相比，本章方法将 MSE 降低 $5.51\%$，MAE 降低 $4.61\%$；与 Pathformer 相比，MSE 降低 $10.29\%$，MAE 降低 $1.79\%$。这些结果表明，本章的多尺度混合专家结构能够分别建模复杂的数据分布，并有效捕获多尺度时序特征，验证了其在多元时间序列预测中的有效性。
+第三，本章方法在分布漂移和多样数据分布条件下保持稳健的性能。与当前多尺度时间序列预测模型 TimeMixer 相比，本章方法将 MSE 降低 $5.51\%$，MAE 降低 $4.61\%$；与 Pathformer 相比，MSE 降低 $10.29\%$，MAE 降低 $1.79\%$。这些结果表明，本章的多尺度混合专家结构能够分别建模复杂的数据分布，并有效捕获多尺度时序特征，验证了其在多元时间序列预测中的有效性。
 
 然而，在 ETTh1 和 ETTh2 数据集上，本章方法表现不如 FITS 和 TimeLinear。这一下降可能源于 ETTh1 和 ETTh2 的数据分布相似度较高，此时使用混合专家可能导致过拟合，而 FITS、TimeLinear 等复杂度较低的简单模型反而更有效。
 
 \subsection{消融实验}
 
-为验证各模块的作用，本章分别进行以下消融实验：
-\begin{enumerate}
-    \item {w/o TDCAM}：表示移除时间戳双向交叉注意力模块。
-    \item {w/o MSMoE}：表示移除多尺度特征提取混合专家模块。
-    \item {Rand Matrix}：表示将通道相关性矩阵替换为随机矩。
-    \item {w/o Matrix} 表示移除相关性掩码并使用全注意力。
-\end{enumerate}
-消融结果如表~\ref{tab:ch3-ablation} 所示，从结果中可以得到三点观察：
+为验证各模块的作用，本章分别进行以下消融实验：{w/o TDCAM} 表示移除时间戳双向交叉注意力模块；{w/o MSMoE} 表示移除多尺度特征提取混合专家模块；{Rand Matrix}：表示将通道相关性矩阵替换为随机矩；{w/o Matrix} 表示移除相关性掩码并使用全注意力。
+消融结果如表~\ref{tab:ch3-ablation} 所示，表中数据为本章方法消融后在所有预测长度结果上的平均值。从结果中可以得到三点观察：
 
 \begin{table}[t!]
     \centering
-    \caption{消融实验结果，所有预测长度结果取平均}
+    \caption{多元时间序列预测方法消融实验}
     % \vspace{-0.5em}
     \resizebox{\linewidth}{!}{
         \begin{tabular}{c|cc|cc|cc|cc|cc}
@@ -391,7 +385,7 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 \begin{table}[t!]
     \centering
-    \caption{不同专家数量下的预测精度，所有预测长度结果取平均}
+    \caption{多元时间序列预测方法在不同专家数量下的对比实验}
     % \vspace{-0.5em}
     \resizebox{\linewidth}{!}{
         \begin{tabular}{c|cc|cc|cc|cc|cc}
@@ -409,48 +403,56 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
     \label{tab:numExpert}
     % \vspace{-1em}
 \end{table}
-\begin{figure}[t!]
-    \centering
-    \includegraphics[width=\linewidth]{figure/ch3-multiScaleVars.png}
-    \caption{在ETTh2数据集上不同尺度数量对方法表现的影响分析}
-    \label{fig:ch3-multiScaleVars}
-\end{figure}
-\begin{figure}[t!]
-    \centering
-    \includegraphics[width=\linewidth]{figure/ch3-lookBackVars.png}
-    \caption{不同回看窗口（$L=48,96,192,336,512,720$）在 ETTh1、Electricity 和 Weather 数据集上的预测误差}
-    \label{fig:ch3-lookBackVars}
-\end{figure}
 
 \subsection{参数分析}
 为了探究本章方法中各类超参数对模型表现的影响，本章节从专家数量、尺度数量和回看窗口三个方面分析主要超参数对模型性能的影响。
 
-\noindent\textbf{专家数量的影响\ \ } 本章方法使用混合专家结构从时间序列中提取时序特征。表~\ref{tab:numExpert} 给出了在 ETTh1、ETTm1、Exchange 和 ILI 四个数据集上不同专家数量下的结果。可以得到三点观察：第一，仅使用一个专家时，模型的整体表现最差。这说明单一专家难以捕捉时间序列中的复杂模式，印证了混合专家设计的合理性。第二，同一领域的数据集通常具有相近的最优专家数。例如 ETTh2 和 ETTm2 均同属于电力领域的时间序列数据集，数据集的数据分布类似，二者均在 $E=4$ 时取得最佳性能；这说明多尺度时序混合专家可以捕捉到数据集分布的差异。第三，不同领域的数据集最优专家数存在差异。例如医疗领域的 ILI 在 $E=2$ 时最佳，而金融领域的 Exchange 在 $E=5$ 时最佳；该结果说明，数据分布不同，多尺度特征提取混合专家模块的最佳专家数量也存在差异。
+\noindent\textbf{专家数量的影响\ \ } 本章方法使用混合专家结构从时间序列中提取时序特征。表~\ref{tab:numExpert} 给出了在 ETTh1、ETTm1、Exchange 和 ILI 四个数据集上不同专家数量下的结果。可以得到三点观察：
+
+第一，仅使用一个专家时，模型的整体表现最差。这说明单一专家难以捕捉时间序列中的复杂模式，印证了混合专家设计的合理性。
+
+第二，同一领域的数据集通常具有相近的最优专家数。例如 ETTh2 和 ETTm2 均同属于电力领域的时间序列数据集，数据集的数据分布类似，二者均在 $E=4$ 时取得最佳性能；这说明多尺度时序混合专家可以捕捉到数据集分布的差异。
+
+第三，不同领域的数据集最优专家数存在差异。例如医疗领域的 ILI 在 $E=2$ 时最佳，而金融领域的 Exchange 在 $E=5$ 时最佳；该结果说明，数据分布不同，多尺度特征提取混合专家模块的最佳专家数量也存在差异。
 
 \noindent\textbf{尺度数量的影响\ \ } 图~\ref{fig:ch3-multiScaleVars}分析了不同尺度数量（$S$）在不同预测长度下的表现。具体而言，较短预测长度，如 $96,192$，更依赖细粒度信息，因此较小尺度数量（$S=1,2$）通常表现更好；较长预测长度，如 $336,720$，更依赖趋势信息，因此较大尺度数量（$S=3$）更有优势。这表明更短的预测长度更加依靠局部细节信息，而更长的预测长度更依赖于趋势性信息。随着尺度增加，趋势信息变得更加突出，但尺度过小或过大都会限制特征多样性或造成信息损失。为兼顾精度和效率，本章在不同数据集上选择表现最佳的尺度数量。
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=\linewidth]{figure/ch3-multiScaleVars.png}
+    \caption{多元时间序列预测方法在不同尺度数量下的对比实验}
+    \label{fig:ch3-multiScaleVars}
+\end{figure}
+% \vspace{-3em}
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=\linewidth]{figure/ch3-lookBackVars.png}
+    \caption{多元时间序列预测在不同回看窗口下的对比实验}
+    \label{fig:ch3-lookBackVars}
+\end{figure}
 
 \noindent\textbf{回看窗口的影响\ \ } 历史区间长度（即回看窗口长度）决定了模型可利用的过去信息量。由于本章方法选取 Transformer 和 MLP 作为模型的基本组件，本节对比了选用这两个基本组件的基线方法进行对比，包括 iTransformer、FITS、SOFTS、DLinear 和 PatchTST。为分析回看窗口长度的影响，本节变化窗口长度 $L\in\{48,96,192,336,512,720\}$ 中，并在预测长度 $F\in\{96,720\}$ 下比较评估结果。如图~\ref{fig:ch3-lookBackVars}所示，本章方法在大多数设置下均优于选取的基线方法；随着回看窗口长度增加，模型误差总体继续下降，说明本章方法能够有效利用较长历史上下文建模长程时间依赖。
 
+\subsection{预测结果可视化}
+本节将本章方法在部分数据集上的预测结果与真值进行了可视化。回看窗口长度为 96，预测长度为 96。图~\ref{fig:ch3-predVis-Electricity}、图~\ref{fig:ch3-predVis-ETTm1} 和图~\ref{fig:ch3-predVis-traffic} 依次为 Electricity、ETTm1 和 Traffic 上的预测可视化结果。真值（Ground Truth）折线为蓝色，预测（Prediction）折线为橙色。 
 \begin{figure}[t!]
     \centering
     \includegraphics[width=\linewidth]{figure/ch3-predVis-ECL.png}
-    \caption{在 Electricity 数据集上的预测结果可视化}
+    \caption{多元时间序列预测方法在 Electricity 数据集上的预测结果可视化}
     \label{fig:ch3-predVis-Electricity}
 \end{figure}
 \begin{figure}[t!]
     \centering
     \includegraphics[width=\linewidth]{figure/ch3-predVis-ETTm1.png}
-    \caption{在 ETTm1 数据集上的预测结果可视化}
+    \caption{多元时间序列预测方法在 ETTm1 数据集上的预测结果可视化}
     \label{fig:ch3-predVis-ETTm1}
 \end{figure}
 \begin{figure}[t!]
     \centering
     \includegraphics[width=\linewidth]{figure/ch3-predVis-Traffic.png}
-    \caption{在 Traffic 数据集上的预测结果可视化}
+    \caption{多元时间序列预测方法在 Traffic 数据集上的预测结果可视化}
     \label{fig:ch3-predVis-traffic}
 \end{figure}
-\subsection{预测结果可视化}
-本节将本章方法在部分数据集上的预测结果与真值进行了可视化。回看窗口长度为 96，预测长度为 96。图~\ref{fig:ch3-predVis-Electricity}、图~\ref{fig:ch3-predVis-ETTm1} 和图~\ref{fig:ch3-predVis-traffic} 依次为 Electricity、ETTm1 和 Traffic 上的预测可视化结果。真值（Ground Truth）折线为蓝色，预测（Prediction）折线为橙色。 
+
 
 \section{本章小结}
 
