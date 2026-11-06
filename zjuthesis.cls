@@ -99,8 +99,8 @@
         \ifthenelse{\equal{\Type}{thesis}}
         {
             % thesis
-            \newcommand{\TitleTypeName}{浙江大学硕士学位论文}
-            \newcommand{\TitleTypeNameCover}{硕士学位论文}
+            \newcommand{\TitleTypeName}{浙江大学硕士学位开题报告与中期进展报告}
+            \newcommand{\TitleTypeNameCover}{硕士学位开题报告与中期进展报告}
         }
         {
             % design
