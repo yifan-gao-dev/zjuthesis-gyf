@@ -221,13 +221,14 @@ X_{SG}=\sum_{j=1}^{k}G_j\!\left(X_{enc}\right)X_{se,j}^{N_s},
 \end{equation}
 其中 $X_{SG}\in\mathbb{R}^{N\times d_S}$ 为静态图特征，$d_S$ 为输出维度。
 
-\noindent\textbf{动态图混合专家\ \ } 动态图混合专家采用与静态图混合专家相同的稀疏激活结构，但其路由信号仅由 $X_{enc}$ 计算，使路由器能够自适应区分隐式时间模式，而不依赖预先给定的空间结构。被选中的动态图专家使用全自注意力提取动态时空特征：
+\noindent\textbf{动态图混合专家\ \ } 动态图混合专家采用与静态图混合专家相同的稀疏激活结构，但其路由信号仅由 $X_{enc}$ 计算，使路由器能够自适应区分隐式时间模式，而不依赖预先给定的空间结构。被选中的动态图专家使用节点级全自注意力提取动态时空特征：
 \begin{equation}
-    X_{att}=\mathrm{SelfAttention}\!\left(X_{enc}\right),
+    X_{att}=\mathrm{Softmax}\!\left(\frac{\left(X_{enc}W^{Q}\right)\left(X_{enc}W^{K}\right)^{\top}}{\sqrt{d}}\right)X_{enc}W^{V},
 \end{equation}
 \begin{equation}
-    X_{de}=\mathrm{FFN}\!\left(X_{att}\right).
+    X_{de}=\mathrm{FFN}\!\left(X_{att}\right),
 \end{equation}
+其中 $W^{Q},W^{K},W^{V}$ 为可学习投影矩阵，$d$ 为投影维度，注意力在节点维上计算。
 通过注意力矩阵，该机制隐式诱导动态图，并建模超出局部邻域的跨节点交互。与受静态图拓扑约束的静态图专家不同，动态图专家能够捕捉随时间演化且不局限于局部邻近关系的依赖。专家输出经门控权重聚合，得到动态图特征 $X_{DG}\in\mathbb{R}^{N\times d_D}$。最后，将静态图和动态图特征拼接：
 \begin{equation}
 X_{SD}=\left[X_{SG};X_{DG}\right].
@@ -750,7 +751,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \subsubsection{复杂度分析}
 
-\noindent\textbf{理论复杂度\ \ } 本节分析一次前向传播的复杂度。设 $N$ 为节点数，$T$ 为历史时间步数，$H$ 为预测长度，$|\mathcal{E}|$ 为交通图边数，$d_{S,h}$ 为静态图专家的隐藏维度，其余特征维度沿用本章前述记号。主要计算开销来自空间多尺度混合专家模块和静态图混合专家中的图卷积层、骨干节点注意力、动态图混合专家中的节点级自注意力以及尺度混合。图池化、路由、门控和最终预测 MLP 属于低阶项，为简洁起见省略。整体复杂度为
+\noindent\textbf{理论复杂度\ \ } 本节分析一次前向传播的复杂度。设 $N$ 为节点数，$T$ 为历史时间步数，$H$ 为预测长度，$|\mathcal{E}|$ 为交通图边数，$d_h$ 为空间多尺度图卷积的隐藏维度，$d_{S,h}$ 为静态图专家的隐藏维度，其余特征维度沿用本章前述记号。主要计算开销来自空间多尺度混合专家模块和静态图混合专家中的图卷积层、骨干节点注意力、动态图混合专家中的节点级自注意力以及尺度混合。图池化、路由、门控和最终预测 MLP 属于低阶项，为简洁起见省略。整体复杂度为
 \begin{equation}
     \mathcal{O}\!\left(L|\mathcal{E}|d_h^2+kN_s|\mathcal{E}|d_{S,h}^2+N_{\mathrm{sk}}Nd_{\mathrm{sk}}+kN^2E+SNd_m^2\right).
 \end{equation}

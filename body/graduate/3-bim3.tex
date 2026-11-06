@@ -117,9 +117,17 @@ k_{i,j}=\frac{1}{D_{i,j}+\delta},
 \end{equation}
 其中 $k_{i,j}=1/(D_{i,j}+\delta)$ 表示两个变量的相关程度，$\delta>0$ 为稳定项，用于避免 $D_{i,j}=0$ 时出现除零，实现中取 $\delta=10^{-10}$；$\epsilon\in(0,1)$ 为缩放系数，用于避免不同变量之间绝对相关性的影响；$P_{i,j}$ 表示变量 $j$ 对变量 $i$ 有用的概率。
 
-\noindent\textbf{重参数化\ \ } 为保留相关变量的作用并减少不相关变量的影响，本章在概率矩阵 ${P}$ 上执行伯努利重采样，得到布尔相关性掩码 $\mathcal{M}_{{cor}}\in\{0,1\}^{N\times N}$。为保证梯度能够传播，使用 Gumbel-Softmax 重参数化技术~\cite{jang2017categorical} 对离散采样过程进行可微松弛，从而在训练过程中端到端地学习变量间的稀疏相关结构。
+\noindent\textbf{重参数化\ \ } 为保留相关变量的作用并减少不相关变量的影响，本章在概率矩阵 ${P}$ 上执行伯努利重采样，得到布尔相关性掩码 $\mathcal{M}_{{cor}}\in\{0,1\}^{N\times N}$。为保证梯度能够传播，使用 Gumbel-Softmax 重参数化技术~\cite{jang2017categorical} 对离散采样过程进行可微松弛。对概率矩阵中的每个元素 $P_{i,j}$，将其视为两分类概率 $\pi_0=P_{i,j}$、$\pi_1=1-P_{i,j}$，并按下式采样：
+\begin{equation}
+    \hat{y}_{c}=\frac{\exp\!\left(\left(\log\pi_c+g_c\right)/\tau\right)}
+{\sum_{c'\in\{0,1\}}\exp\!\left(\left(\log\pi_{c'}+g_{c'}\right)/\tau\right)},
+\end{equation}
+\begin{equation}
+    g_c=-\log\!\left(-\log u_c\right),\ u_c\sim U(0,1),
+\end{equation}
+其中 $\tau$ 为温度系数。前向传播取硬采样结果以得到 $\{0,1\}$ 掩码，反向传播通过直通估计器将梯度传递至 $P_{i,j}$，从而在训练过程中端到端地学习变量间的稀疏相关结构。
 
-\begin{figure}[ht!]
+\begin{figure}[t!]
     \centering
     \includegraphics[width=0.95\linewidth]{figure/bim3-tdcam.pdf}
     \caption{时间戳双向交叉注意力模块结构图}
@@ -179,7 +187,7 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 \begin{equation}
 \mathcal{L}_{\mathrm{constraint}}=\epsilon_c\,\mathrm{mean}\!\left(\left|V_{cons}\right|\right),
 \end{equation}
-其中 $\epsilon_c$ 为人工调节的约束强度系数。该损失鼓励模型将时间戳特征和先验上下文纳入预测过程，从而在训练中施加时间戳感知约束。为平衡专家负载，另加入重要性损失 $\mathcal{L}_{\mathrm{importance}}$~\cite{moe}。最终总损失函数为：
+其中 $\epsilon_c$ 为人工调节的约束强度系数。该损失鼓励模型将时间戳特征和先验上下文纳入预测过程，从而在训练中施加时间戳感知约束。为平衡专家负载，另加入与第2章所述负载均衡损失一致的重要性损失 $\mathcal{L}_{\mathrm{importance}}$~\cite{moe}，即 $\mathcal{L}_{\mathrm{importance}}=\mathcal{L}_{\mathrm{load}}$。最终总损失函数为：
 \begin{equation}
 \mathcal{L}=\mathcal{L}_{\mathrm{main}}+\mathcal{L}_{\mathrm{constraint}}+\mathcal{L}_{\mathrm{importance}}.
 \end{equation}
@@ -344,7 +352,7 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 第三，本章方法在分布漂移和多样数据分布条件下保持稳健的性能。与当前多尺度时间序列预测模型 TimeMixer 相比，本章方法将 MSE 降低 $5.51\%$，MAE 降低 $4.61\%$；与 Pathformer 相比，MSE 降低 $10.29\%$，MAE 降低 $1.79\%$。这些结果表明，本章的多尺度混合专家结构能够分别建模复杂的数据分布，并有效捕获多尺度时序特征，验证了其在多元时间序列预测中的有效性。
 
-然而，在 ETTh1 和 ETTh2 数据集上，本章方法表现不如 FITS 和 TimeLinear。这一下降可能源于 ETTh1 和 ETTh2 的数据分布相似度较高，此时使用混合专家可能导致过拟合，而 FITS、TimeLinear 等复杂度较低的简单模型反而更有效。
+然而，在 ETTh1 和 ETTh2 数据集上，本章方法表现不如 FITS 和 TimeLinear。可能的原因是，这两个数据集的时序模式相对平稳、结构较为简单，FITS、TimeLinear 等低复杂度模型已能较好地拟合；而本章的混合专家与多尺度结构引入了更多可学习参数，在数据规模有限或模式较简单的场景下更容易发生过拟合，未能带来额外收益。
 
 \subsection{消融实验}
 
