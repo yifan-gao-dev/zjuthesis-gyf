@@ -5,48 +5,48 @@
 
 时空序列预测的目标，是根据历史观测及其附带的时间戳、空间位置或拓扑信息，推断未来一段时间内多个变量或空间节点的取值。依据输入中是否显式包含空间图结构，本文将其划分为一般多元时间序列预测和基于图的时空交通预测两类问题，并分别给出统一记号。
 
-在一般多元时间序列预测中，设系统包含 $N$ 个同步观测的变量，每个变量在每一时刻给出 $C$ 维观测值。记第 $t$ 个时间步的观测为
+在一般多元时间序列预测中，设系统包含 $N$ 个同步观测的变量。本文考虑每个变量在每一时刻给出一个标量观测值的情形，即取 $C=1$，为简洁起见下文中省略该维度。记第 $t$ 个时间步的观测为
 \begin{equation}
-\mathbf{x}_t = \left[\mathbf{x}_{t}^{1}, \mathbf{x}_{t}^{2}, \ldots, \mathbf{x}_{t}^{N}\right]^{\top} \in \mathbb{R}^{N \times C},
+\mathbf{x}_t = \left[x_{t}^{1}, x_{t}^{2}, \ldots, x_{t}^{N}\right] \in \mathbb{R}^{N},
 \end{equation}
-其中 $\mathbf{x}_{t}^{n} \in \mathbb{R}^{C}$ 表示第 $n$ 个变量在 $t$ 时刻的观测向量。给定历史长度为 $T$ 的观测窗口
+其中 $x_{t}^{n} \in \mathbb{R}$ 表示第 $n$ 个变量在 $t$ 时刻的观测值。给定历史长度为 $T$ 的观测窗口
 \begin{equation}
-\mathbf{X}_{1:T} = \left[\mathbf{x}_{1}, \mathbf{x}_{2}, \ldots, \mathbf{x}_{T}\right] \in \mathbb{R}^{N \times T \times C},
+\mathbf{X}_{1:T} = \left[\mathbf{x}_{1}^{\top}, \mathbf{x}_{2}^{\top}, \ldots, \mathbf{x}_{T}^{\top}\right]^{\top} \in \mathbb{R}^{T \times N},
 \end{equation}
-以及对应的历史时间戳矩阵 $\mathbf{T}_{1:T} \in \mathbb{R}^{T \times d_{\tau}}$ 和未来时间戳矩阵 $\mathbf{T}_{T+1:T+H} \in \mathbb{R}^{H \times d_{\tau}}$，其中 $H$ 为预测步长，$d_{\tau}$ 为时间戳特征的维度。记未来真实观测为 $\mathbf{X}_{T+1:T+H} \in \mathbb{R}^{N \times H \times C}$，预测模型需要学习映射
+以及对应的历史时间戳矩阵 $\mathbf{T}_{1:T} \in \mathbb{R}^{T \times d_{\tau}}$ 和未来时间戳矩阵 $\mathbf{T}_{T+1:T+H} \in \mathbb{R}^{H \times d_{\tau}}$，其中 $H$ 为预测步长，$d_{\tau}$ 为时间戳特征的维度。记未来真实观测为 $\mathbf{X}_{T+1:T+H} \in \mathbb{R}^{H \times N}$，预测模型需要学习映射：
 \begin{equation}
-f_{\theta}: \left(\mathbf{X}_{1:T}, \mathbf{T}_{1:T}, \mathbf{T}_{T+1:T+H}\right) \mapsto \hat{\mathbf{X}}_{T+1:T+H} \in \mathbb{R}^{N \times H \times C}.
+f_{\theta}: \left(\mathbf{X}_{1:T}, \mathbf{T}_{1:T}, \mathbf{T}_{T+1:T+H}\right) \mapsto \hat{\mathbf{X}}_{T+1:T+H} \in \mathbb{R}^{H \times N}.
 \end{equation}
 当仅需预测部分变量或部分特征时，可以令输出维度作相应缩减，而不改变问题的一般形式。实际训练时通常采用滑动窗口构造样本：从完整序列中连续截取长度为 $T+H$ 的片段，将前 $T$ 个时间步作为模型输入，后 $H$ 个时间步作为监督目标。为了消除不同变量之间的量纲和尺度差异，输入通常先按变量进行标准化。设第 $n$ 个变量历史序列的均值和标准差分别为 $\mu^{n}$ 和 $\sigma^{n}$，则标准化与逆标准化可写为
 \begin{equation}
-    \tilde{x}_{t}^{n,c} = \frac{x_{t}^{n,c} - \mu^{n}}{\sigma^{n} + \epsilon},
+    \tilde{x}_{t}^{n} = \frac{x_{t}^{n} - \mu^{n}}{\sigma^{n} + \epsilon},
 \end{equation}
 \begin{equation}
-    x_{t}^{n,c} = \left(\sigma^{n} + \epsilon\right) \hat{x}_{t}^{n,c} + \mu^{n},
+    x_{t}^{n} = \left(\sigma^{n} + \epsilon\right) \hat{x}_{t}^{n} + \mu^{n},
 \end{equation}
 其中 $\epsilon$ 为避免除零的小常数。对于单步或多步回归预测，常用的平均绝对误差和均方误差分别为
 \begin{equation}
-    \mathcal{L}_{\mathrm{MAE}} = \frac{1}{NHC} \sum_{n=1}^{N} \sum_{h=1}^{H} \sum_{c=1}^{C}
-    \left| \hat{x}_{T+h}^{n,c} - x_{T+h}^{n,c} \right|,
+    \mathcal{L}_{\mathrm{MAE}} = \frac{1}{NH} \sum_{n=1}^{N} \sum_{h=1}^{H}
+    \left| \hat{x}_{T+h}^{n} - x_{T+h}^{n} \right|,
 \end{equation}
 \begin{equation}
-    \mathcal{L}_{\mathrm{MSE}} = \frac{1}{NHC} \sum_{n=1}^{N} \sum_{h=1}^{H} \sum_{c=1}^{C}
-    \left( \hat{x}_{T+h}^{n,c} - x_{T+h}^{n,c} \right)^{2}.
+    \mathcal{L}_{\mathrm{MSE}} = \frac{1}{NH} \sum_{n=1}^{N} \sum_{h=1}^{H}
+    \left( \hat{x}_{T+h}^{n} - x_{T+h}^{n} \right)^{2}.
 \end{equation}
 一般多元时间序列预测的核心难点在于：不同变量的观测分布存在差异，序列统计特性随时间发生漂移，且同一序列中往往同时包含趋势、周期和局部波动等多尺度模式。
 
-在基于图的时空交通预测中，交通路网被建模为图 $\mathcal{G}=(\mathcal{V}, \mathcal{E}, \mathbf{A})$，其中 $\mathcal{V}$ 为节点集合且 $\left|\mathcal{V}\right| = N$，$\mathcal{E}$ 为边集合，$\mathbf{A} \in \mathbb{R}^{N \times N}$ 为描述节点之间空间连接强度的邻接矩阵。第 $t$ 个时间步的交通观测记为 $\mathbf{X}_{t} \in \mathbb{R}^{N \times C}$。给定历史窗口
+在基于图的时空交通预测中，交通路网被建模为图 $\mathcal{G}=(\mathcal{V}, \mathcal{E}, \mathbf{A})$，其中 $\mathcal{V}$ 为节点集合且 $\left|\mathcal{V}\right| = N$，$\mathcal{E}$ 为边集合，$\mathbf{A} \in \mathbb{R}^{N \times N}$ 为描述节点之间空间连接强度的邻接矩阵。第 $t$ 个时间步的交通观测记为 $\mathbf{X}_{t} \in \mathbb{R}^{N}$。给定历史窗口
 \begin{equation}
 \mathcal{X}_{t-T+1:t} = \left[\mathbf{X}_{t-T+1}, \mathbf{X}_{t-T+2}, \ldots, \mathbf{X}_{t}\right],
 \end{equation}
 以及未来真实观测 $\mathcal{Y}_{t+1:t+H}$，预测模型需要根据历史观测和路网图 $\mathcal{G}$ 学习映射
 \begin{equation}
-f_{\theta}: \left(\mathcal{X}_{t-T+1:t}, \mathcal{G}\right) \mapsto \hat{\mathbf{Y}}_{t+1:t+H} \in \mathbb{R}^{N \times H \times C}.
+f_{\theta}: \left(\mathcal{X}_{t-T+1:t}, \mathcal{G}\right) \mapsto \hat{\mathbf{Y}}_{t+1:t+H} \in \mathbb{R}^{N \times H}.
 \end{equation}
 交通预测的监督目标同样可以定义为逐节点的 MAE 或 MSE：
 \begin{equation}
 \mathcal{L}_{\mathrm{traffic}} = \frac{1}{NH} \sum_{n=1}^{N} \sum_{h=1}^{H}
-\left\| \hat{\mathbf{Y}}_{t+h}^{n} - \mathbf{Y}_{t+h}^{n} \right\|_{2}^{2}.
+\left( \hat{Y}_{t+h}^{n} - Y_{t+h}^{n} \right)^{2}.
 \end{equation}
 为区分不同来源的空间依赖，本文用 $\mathbf{A}^{\mathrm{s}}$ 表示由路网拓扑预先给定或可学习的静态邻接矩阵，用 $\mathbf{A}^{\mathrm{d}}_{t}$ 表示随时间变化的动态邻接矩阵。交通时空预测的难点在于：节点之间存在由道路连接决定的静态结构，也存在由交通状态演化产生的动态交互；同时，交通数据在不同空间尺度上可能呈现不同的分布和依赖模式。
 
