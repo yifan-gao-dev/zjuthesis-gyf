@@ -54,7 +54,8 @@ f_{\theta}:\left(X,\mathcal{G}\right)\mapsto Y_\mathrm{pred}.
 为了增强交通数据的表达能力，编码器首先将历史数据编码为原始图节点嵌入。除历史观测 $X\in\mathbb{R}^{N\times T}$ 外，本章还利用日内时间索引和星期索引作为时刻信息。对第 $t$ 个时间步，记日内时间索引和星期索引分别为 $x_{tid,t}$ 和 $x_{diw,t}$，并通过两个可学习嵌入表将其映射为连续向量：
 \begin{equation}
 e_{tid,t}=\mathrm{Embed}_{tid}\!\left(x_{tid,t}\right),
-\qquad
+\end{equation}
+\begin{equation}
 e_{diw,t}=\mathrm{Embed}_{diw}\!\left(x_{diw,t}\right),
 \end{equation}
 其中 $e_{tid,t},e_{diw,t}\in\mathbb{R}^{E}$，两个嵌入表的类别数在实现中分别取 $288$ 和 $7$。将第 $n$ 个节点在时刻 $t$ 的观测 $x_{n,t}$ 与两个时刻嵌入拼接，并通过线性层映射到隐空间：
@@ -71,12 +72,14 @@ x_{enc}^{n,t}=\mathrm{Linear}\!\left(\left[x_{n,t};e_{tid,t};e_{diw,t}\right]\ri
 \noindent\textbf{子图构造\ \ } 编码完成后，得到原始图节点嵌入 $X_{enc}^0\in\mathbb{R}^{N\times E}$ 和原始图 $\mathcal{G}_0$。为构造 $S$ 个空间尺度上的子图，使用包含 $S$ 个池化层的图池化模块。对第 $i$ 个池化层，轻量图卷积为原始图 $\mathcal{G}_0$ 中的每个节点生成得分~\cite{sagpool}，并选择得分最高的 $\lfloor N/F^{i}\rfloor$ 个节点构造子图 $\mathcal{G}_i$，其中 $F$ 为尺度缩放因子，$N_i=\lfloor N/F^{i}\rfloor$。为保留结构信息，$\mathcal{G}_i$ 直接从原始图构造，而不是从中间池化图构造：
 \begin{equation}
 scores_i=\mathrm{GCN}\!\left(X_{enc}^0,\mathcal{A}\right),
-\qquad
+\end{equation}
+\begin{equation}
 \mathrm{idx}_i=\mathrm{TopK}\!\left(scores_i,N_i\right),
 \end{equation}
 \begin{equation}
 X_{enc}^i=\left(\mathcal{A}_{norm}X_{enc}^0\right)_{\mathrm{idx}_i},
-\qquad
+\end{equation}
+\begin{equation}
 \mathcal{A}_i=\mathcal{A}_{\mathrm{idx}_i,\mathrm{idx}_i},
 \end{equation}
 其中 $X_{enc}^i\in\mathbb{R}^{N_i\times E}$ 为池化后的节点嵌入，$\mathcal{A}_i\in\mathbb{R}^{N_i\times N_i}$ 为子图邻接矩阵，$\mathrm{idx}_i$ 记录保留节点在原始图中的索引。给定 $F$，该过程得到 $S=\lfloor\log_F N\rfloor$ 个子图。图池化流程如算法~\ref{alg:ch4_graph_pooling} 所示。

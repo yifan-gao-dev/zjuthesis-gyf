@@ -112,7 +112,8 @@ P_{i,j}=
 1, & i=j,
 \end{array}
 \right.
-\qquad
+\end{equation}
+\begin{equation}
 k_{i,j}=\frac{1}{D_{i,j}+\delta},
 \end{equation}
 其中 $k_{i,j}=1/(D_{i,j}+\delta)$ 表示两个变量的相关程度，$\delta>0$ 为稳定项，用于避免 $D_{i,j}=0$ 时出现除零，实现中取 $\delta=10^{-10}$；$\epsilon\in(0,1)$ 为缩放系数，用于避免不同变量之间绝对相关性的影响；$P_{i,j}$ 表示变量 $j$ 对变量 $i$ 有用的概率。

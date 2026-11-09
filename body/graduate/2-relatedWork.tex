@@ -63,23 +63,27 @@ f_{\theta}: \left(\mathcal{X}_{t-T+1:t}, \mathcal{G}\right) \mapsto \hat{\mathbf
 其中 $\mathbf{h}_t$ 为 $t$ 时刻的隐状态，$\mathbf{W}_{xh}$ 和 $\mathbf{W}_{hh}$ 为可学习权重，$\mathbf{b}_h$ 为偏置，$\phi_h(\cdot)$ 为非线性激活函数。长短期记忆（Long Short-Term Memory，LSTM）网络通过输入门、遗忘门、输出门和细胞状态控制信息流动。给定当前输入 $\mathbf{x}_t$ 和上一时刻隐状态 $\mathbf{h}_{t-1}$，LSTM 的门控更新为
 \begin{equation}
 \mathbf{i}_t = \sigma\!\left(\mathbf{W}_{xi} \mathbf{x}_t + \mathbf{W}_{hi} \mathbf{h}_{t-1} + \mathbf{b}_i\right),
-\quad
+\end{equation}
+\begin{equation}
 \mathbf{f}_t = \sigma\!\left(\mathbf{W}_{xf} \mathbf{x}_t + \mathbf{W}_{hf} \mathbf{h}_{t-1} + \mathbf{b}_f\right),
 \end{equation}
 \begin{equation}
 \mathbf{o}_t = \sigma\!\left(\mathbf{W}_{xo} \mathbf{x}_t + \mathbf{W}_{ho} \mathbf{h}_{t-1} + \mathbf{b}_o\right),
-\quad
+\end{equation}
+\begin{equation}
 \tilde{\mathbf{c}}_t = \tanh\!\left(\mathbf{W}_{xc} \mathbf{x}_t + \mathbf{W}_{hc} \mathbf{h}_{t-1} + \mathbf{b}_c\right),
 \end{equation}
 \begin{equation}
 \mathbf{c}_t = \mathbf{f}_t \odot \mathbf{c}_{t-1} + \mathbf{i}_t \odot \tilde{\mathbf{c}}_t,
-\qquad
+\end{equation}
+\begin{equation}
 \mathbf{h}_t = \mathbf{o}_t \odot \tanh\!\left(\mathbf{c}_t\right),
 \end{equation}
 其中 $\odot$ 表示逐元素乘法。门控循环单元（Gated Recurrent Unit，GRU）通过更新门和重置门实现类似的信息选择机制：
 \begin{equation}
 \mathbf{z}_t = \sigma\!\left(\mathbf{W}_{xz} \mathbf{x}_t + \mathbf{W}_{hz} \mathbf{h}_{t-1} + \mathbf{b}_z\right),
-\quad
+\end{equation}
+\begin{equation}
 \mathbf{r}_t = \sigma\!\left(\mathbf{W}_{xr} \mathbf{x}_t + \mathbf{W}_{hr} \mathbf{h}_{t-1} + \mathbf{b}_r\right),
 \end{equation}
 \begin{equation}
@@ -128,7 +132,8 @@ Transformer~\cite{attention} 以自注意力机制替代循环和卷积，通过
 其中 $\mathbf{W}_i^{Q}, \mathbf{W}_i^{K}, \mathbf{W}_i^{V}$ 为第 $i$ 个头的投影矩阵，$\mathbf{W}^{O}$ 为输出投影矩阵。由于自注意力本身对令牌顺序不敏感，Transformer 通常将位置编码或时间戳嵌入与输入特征相加后进入注意力层。正弦位置编码可写为
 \begin{equation}
 \mathrm{PE}_{(p, 2i)} = \sin\!\left(\frac{p}{10000^{2i/d_m}}\right),
-\quad
+\end{equation}
+\begin{equation}
 \mathrm{PE}_{(p, 2i+1)} = \cos\!\left(\frac{p}{10000^{2i/d_m}}\right),
 \end{equation}
 其中 $p$ 为位置索引，$i$ 为维度索引，$d_m$ 为模型隐层维度。编码器中的每个 Transformer 块通常由多头注意力、残差连接、层归一化和前馈网络组成：
@@ -208,7 +213,8 @@ Pathformer~\cite{pathformer} 通过多尺度分块将输入序列划分为不同
 Pyraformer~\cite{pyraformer} 通过金字塔注意力在不同时间尺度上建模长程依赖，将长序列建模复杂度从平方级降低到近线性级；SCINet~\cite{scinet} 通过二分下采样树对序列进行层次化分解和交互。设输入序列在某一尺度上按奇偶位置拆分为 $\mathbf{x}_{\mathrm{odd}}$ 和 $\mathbf{x}_{\mathrm{even}}$，SCINet 的交互操作可写为
 \begin{equation}
 \mathbf{x}_{\mathrm{odd}}' = \mathbf{x}_{\mathrm{odd}} + \phi_{o}\!\left(\mathbf{x}_{\mathrm{even}}\right),
-\quad
+\end{equation}
+\begin{equation}
 \mathbf{x}_{\mathrm{even}}' = \mathbf{x}_{\mathrm{even}} + \phi_{e}\!\left(\mathbf{x}_{\mathrm{odd}}\right),
 \end{equation}
 其中 $\phi_o(\cdot)$ 和 $\phi_e(\cdot)$ 为可学习卷积模块，输出通过逆拆分恢复原分辨率。
@@ -303,7 +309,8 @@ ASTGCN~\cite{astgcn} 在时空卷积中引入注意力机制，对不同时间�
 真实路网中的交通依赖具有明显的空间尺度差异：相邻路段之间的局部拥堵传播、区域之间的宏观流量转移以及城市尺度的整体需求变化通常需要不同粒度的图结构进行刻画。层次化图建模通过节点分组和图粗化构造多尺度空间图。设原始图节点数为 $N^{(0)}=N$，第 $s$ 个尺度的节点数为 $N^{(s)}$，节点分组矩阵为 $\mathbf{S}^{(s)} \in \mathbb{R}^{N^{(s-1)} \times N^{(s)}}$，则粗化后的节点特征和邻接矩阵可表示为
 \begin{equation}
 \mathbf{X}^{(s)} = \mathbf{S}^{(s)\top} \mathbf{X}^{(s-1)},
-\qquad
+\end{equation}
+\begin{equation}
 \mathbf{A}^{(s)} = \mathbf{S}^{(s)\top} \mathbf{A}^{(s-1)} \mathbf{S}^{(s)}.
 \end{equation}
 分组矩阵既可以由地理距离、谱聚类等先验知识构造，也可以通过图池化或注意力机制从数据中学习。若使用可学习的分组矩阵，则可通过对分组概率进行 Softmax 归一化保证每个节点到上层节点的贡献之和为 1。为了将粗尺度特征与原始尺度特征联合使用，多尺度融合通常可写为
