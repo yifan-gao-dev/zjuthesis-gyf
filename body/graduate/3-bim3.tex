@@ -32,7 +32,7 @@ f_{\theta}:\left({X},{T}_{hist},{T}_{future}\right)
 
 为有效建模多元时间序列中异质的数据分布，本章提出多尺度特征提取混合专家模块。为保证计算效率，该模块以稀疏门控混合专家层~\cite{moe} 为基本结构。路由网络根据数据分布将时间序列分配给不同专家，而每个多尺度特征提取专家进一步从被路由的序列中提取多尺度时序特征。路由和特征提取均以通道独立方式进行，使模型能够保留不同变量特有的时序模式，而不是对所有通道使用同一组共享参数。
 
-\noindent\textbf{时间序列路由\ \ } 对第 $n$ 个变量的历史序列 $X_n={X}_{:,n}\in\mathbb{R}^{T}$，首先通过两个全连接分支将其投影到低维空间，以得到用于路由的分布特征~\cite{vae}：
+\noindent\textbf{时间序列路由\ \ } 对第 $n$ 个变量的历史序列 $X_n={X}_{:,n}\in\mathbb{R}^{T}$，首先通过两个全连接分支将其投影到低维空间，以得到用于路由的分布特征~\cite{moe}：
 \begin{equation}
     {g}_n=\max\!\left(0,X_n{W}_{g}^0\right){W}_{g}^1,
 \end{equation}
@@ -148,7 +148,7 @@ e_{\mathrm{year}}=\frac{y-y_{\min}}{y_{\max}-y_{\min}},
 \begin{equation}
 e_{v}=\mathrm{concat}\left[\sin\!\left(\frac{2\pi v}{P}\right), \cos\!\left(\frac{2\pi v}{P}\right)\right].
 \end{equation}
-周期项包括月份、年内日、小时、分钟和星期进行编码，周期分别为 $12$、$366$、$24$、$60$ 和 $7$。历史时间戳和未来时间戳分别编码为 ${E}^{hist}$ 和 ${E}^{future}$。得到线性项和周期项的编码后，按照“年、月、日、时、分、星期”的顺序进行拼接，作为每个时间戳的最终编码。
+对月份、年内日、小时、分钟和星期等周期项分别进行编码，周期分别为 $12$、$366$、$24$、$60$ 和 $7$。历史时间戳和未来时间戳分别编码为 ${E}^{hist}$ 和 ${E}^{future}$。得到线性项和周期项的编码后，按照“年、月、日、时、分、星期”的顺序进行拼接，作为每个时间戳的最终编码。
 
 为捕捉历史与未来时间戳之间的双向依赖，模块包含两个对称的交叉注意力分支，即前视层和回顾层。对第 $i$ 个尺度，前视层以历史时间戳嵌入作为查询、未来时间戳嵌入作为键和值，输出未来上下文特征；回顾层以未来时间戳嵌入作为查询、历史时间戳嵌入作为键和值，输出历史上下文特征。通过这种双向交叉注意力，时间依赖先通过时间戳交互被捕获，再被融入时间序列数据中，为预测提供额外上下文。
 
@@ -171,7 +171,7 @@ e_{v}=\mathrm{concat}\left[\sin\!\left(\frac{2\pi v}{P}\right), \cos\!\left(\fra
 \begin{equation}
 Y_\mathrm{pred}=\mathrm{DeNorm}\!\left(\hat{X}_{data}\right).
 \end{equation}
-主损失采用 L1 损失，其中$Y_{gt}$表示真值：
+主损失采用 L1 损失，其中 $Y_\mathrm{gt}$ 表示真值：
 \begin{equation}
 \mathcal{L}_{\mathrm{main}}=\mathrm{L1Loss}\!\left(Y_\mathrm{pred},Y_\mathrm{gt}\right).
 \end{equation}
@@ -225,7 +225,7 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 \subsection{对比方法}
 
-为全面评估不同技术路线的方法在预测精度上的表现，本章节选择三类具有代表性的近期基线方法进行对比。第一类为线性与轻量模型，包括 DLinear~\cite{dlinear}、FITS~\cite{fits} 和 TimeLinear~\cite{timester}，其特点是结构简单、计算开销较低，常作为时序预测的强基线。第二类为 Transformer 类模型，包括 PatchTST~\cite{patchtst}、iTransformer~\cite{itransformer}、Crossformer~\cite{crossformer}、SOFTS~\cite{softs} 和 DUET~\cite{duet}，这些方法分别通过时间块、变量令牌、跨维注意力、序列核和聚类等方式改进时序 Transformer。第三类为多尺度与频域模型，包括 TimeMixer~\cite{timemixer}、Pathformer~\cite{pathformer}、PDF~\cite{pdf} 和 TimesNet~\cite{timesnet}，它们从多尺度分解、自适应分块、周期解耦和二维时序变换等角度增强多尺度时序建模能力。
+为全面评估不同技术路线的方法在预测精度上的表现，本章节选择三类具有代表性的近期基线方法进行对比。第一类为线性与轻量模型，包括 DLinear~\cite{dlinear}、FITS~\cite{fits} 和 TimeSter~\cite{timester}，其特点是结构简单、计算开销较低，常作为时序预测的强基线。第二类为 Transformer 类模型，包括 PatchTST~\cite{patchtst}、iTransformer~\cite{itransformer}、Crossformer~\cite{crossformer}、SOFTS~\cite{softs} 和 DUET~\cite{duet}，这些方法分别通过时间块、变量令牌、跨维注意力、序列核和聚类等方式改进时序 Transformer。第三类为多尺度与频域模型，包括 TimeMixer~\cite{timemixer}、Pathformer~\cite{pathformer}、PDF~\cite{pdf} 和 TimesNet~\cite{timesnet}，它们从多尺度分解、自适应分块、周期解耦和二维时序变换等角度增强多尺度时序建模能力。
 
 为保证公平比较，本章选择各方法在候选回看窗口下的最佳结果，并重新运行所有基线的官方代码得到实验结果。
 
@@ -253,7 +253,7 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
     \resizebox{\linewidth}{!}{
         \begin{tabular}{cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc|cc}
         \toprule
-            \multicolumn{2}{c|}{方法} & \multicolumn{2}{c|}{本章方法} & \multicolumn{2}{c|}{DUET} & \multicolumn{2}{c|}{TimeLinear} & \multicolumn{2}{c|}{PDF} & \multicolumn{2}{c|}{FITS} & \multicolumn{2}{c|}{Pathformer} & \multicolumn{2}{c|}{TimeMixer} & \multicolumn{2}{c|}{iTransformer} & \multicolumn{2}{c|}{SOFTS} & \multicolumn{2}{c|}{PatchTST} & \multicolumn{2}{c|}{Crossformer} & \multicolumn{2}{c|}{TimesNet} & \multicolumn{2}{c}{DLinear} \\
+            \multicolumn{2}{c|}{方法} & \multicolumn{2}{c|}{本章方法} & \multicolumn{2}{c|}{DUET} & \multicolumn{2}{c|}{TimeSter} & \multicolumn{2}{c|}{PDF} & \multicolumn{2}{c|}{FITS} & \multicolumn{2}{c|}{Pathformer} & \multicolumn{2}{c|}{TimeMixer} & \multicolumn{2}{c|}{iTransformer} & \multicolumn{2}{c|}{SOFTS} & \multicolumn{2}{c|}{PatchTST} & \multicolumn{2}{c|}{Crossformer} & \multicolumn{2}{c|}{TimesNet} & \multicolumn{2}{c}{DLinear} \\
             \midrule
             \multicolumn{2}{c|}{指标} & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE & MSE & MAE \\
         \midrule    %% ECL
@@ -349,11 +349,11 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
 
 第一，本章方法在标准基准数据集上取得了最好的整体性能。在 40 组测试中，本章方法在 MAE 指标上有 36 组达到当前最优，在 MSE 指标上有 32 组达到当前最优。总体而言，本章方法在不同数据集和评价指标下持续表现出优越的预测精度。
 
-第二，本章方法体现了在预测过程中引入时间戳约束的优势。与不利用时间戳信息的 PatchTST 相比，本章方法将 MSE 降低 $4.93\%$，MAE 降低 $6.42\%$；与仅将时间戳作为普通输入的 iTransformer 相比，MSE 降低 $11.29\%$，MAE 降低 $10.74\%$；与显式建模时间戳的 TimeLinear 相比，MSE 降低 $12.86\%$，MAE 降低 $9.51\%$。这些结果表明，时间戳双向交叉注意力模块能够通过历史与未来时间戳的交互有效捕获双向时间依赖，并利用时间戳约束提升预测性能。
+第二，本章方法体现了在预测过程中引入时间戳约束的优势。与不利用时间戳信息的 PatchTST 相比，本章方法将 MSE 降低 $4.93\%$，MAE 降低 $6.42\%$；与仅将时间戳作为普通输入的 iTransformer 相比，MSE 降低 $11.29\%$，MAE 降低 $10.74\%$；与显式建模时间戳的 TimeSter 相比，MSE 降低 $12.86\%$，MAE 降低 $9.51\%$。这些结果表明，时间戳双向交叉注意力模块能够通过历史与未来时间戳的交互有效捕获双向时间依赖，并利用时间戳约束提升预测性能。
 
 第三，本章方法在分布漂移和多样数据分布条件下保持稳健的性能。与当前多尺度时间序列预测模型 TimeMixer 相比，本章方法将 MSE 降低 $5.51\%$，MAE 降低 $4.61\%$；与 Pathformer 相比，MSE 降低 $10.29\%$，MAE 降低 $1.79\%$。这些结果表明，本章的多尺度混合专家结构能够分别建模复杂的数据分布，并有效捕获多尺度时序特征，验证了其在多元时间序列预测中的有效性。
 
-然而，在 ETTh1 和 ETTh2 数据集上，本章方法表现不如 FITS 和 TimeLinear。可能的原因是，这两个数据集的时序模式相对平稳、结构较为简单，FITS、TimeLinear 等低复杂度模型已能较好地拟合；而本章的混合专家与多尺度结构引入了更多可学习参数，在数据规模有限或模式较简单的场景下更容易发生过拟合，未能带来额外收益。
+然而，在 ETTh1 和 ETTh2 数据集上，本章方法表现不如 FITS 和 TimeSter。可能的原因是，这两个数据集的时序模式相对平稳、结构较为简单，FITS、TimeSter 等低复杂度模型已能较好地拟合；而本章的混合专家与多尺度结构引入了更多可学习参数，在数据规模有限或模式较简单的场景下更容易发生过拟合，未能带来额外收益。
 
 \subsection{消融实验}
 
@@ -437,7 +437,7 @@ V_{cons}=\mathrm{Mapper}\!\left(\hat{Y}_{cons}\right).
     \label{fig:ch3-lookBackVars}
 \end{figure}
 
-\noindent\textbf{回看窗口的影响\ \ } 历史区间长度（即回看窗口长度）决定了模型可利用的过去信息量。由于本章方法选取 Transformer 和 MLP 作为模型的基本组件，本节对比了选用这两个基本组件的基线方法进行对比，包括 iTransformer、FITS、SOFTS、DLinear 和 PatchTST。为分析回看窗口长度的影响，本节变化窗口长度 $L\in\{48,96,192,336,512,720\}$ 中，并在预测长度 $F\in\{96,720\}$ 下比较评估结果。如图~\ref{fig:ch3-lookBackVars}所示，本章方法在大多数设置下均优于选取的基线方法；随着回看窗口长度增加，模型误差总体继续下降，说明本章方法能够有效利用较长历史上下文建模长程时间依赖。
+\noindent\textbf{回看窗口的影响\ \ } 历史区间长度（即回看窗口长度）决定了模型可利用的过去信息量。由于本章方法选取 Transformer 和 MLP 作为模型的基本组件，本节选用这两个基本组件的基线方法进行对比，包括 iTransformer、FITS、SOFTS、DLinear 和 PatchTST。为分析回看窗口长度的影响，本节将窗口长度 $L$ 改变为 $\{48,96,192,336,512,720\}$，并在预测长度 $F\in\{96,720\}$ 下比较评估结果。如图~\ref{fig:ch3-lookBackVars}所示，本章方法在大多数设置下均优于选取的基线方法；随着回看窗口长度增加，模型误差总体继续下降，说明本章方法能够有效利用较长历史上下文建模长程时间依赖。
 
 \subsection{预测结果可视化}
 本节将本章方法在部分数据集上的预测结果与真值进行了可视化。回看窗口长度为 96，预测长度为 96。图~\ref{fig:ch3-predVis-Electricity}、图~\ref{fig:ch3-predVis-ETTm1} 和图~\ref{fig:ch3-predVis-traffic} 依次为 Electricity、ETTm1 和 Traffic 上的预测可视化结果。真值（Ground Truth）折线为蓝色，预测（Prediction）折线为橙色。 

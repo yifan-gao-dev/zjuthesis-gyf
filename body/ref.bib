@@ -40,9 +40,6 @@ issn = {1000-386X},
   doi          = {10.48550/ARXIV.1606.08415},
   eprinttype   = {arXiv},
   eprint       = {1606.08415},
-  timestamp    = {Thu, 01 Oct 2026 11:29:57 +0200},
-  biburl       = {https://dblp.org/rec/journals/corr/HendrycksG16.bib},
-  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
 @ARTICLE{gnn4ts-survey,
@@ -230,22 +227,6 @@ number = "7",
   doi={10.1109/TKDE.2025.3536009}
 }
 
-@inproceedings{cnn,
-    title = "Convolutional Neural Networks for Sentence Classification",
-    author = "Kim, Yoon",
-    editor = "Moschitti, Alessandro  and
-      Pang, Bo  and
-      Daelemans, Walter",
-    booktitle = "Proceedings of the 2014 Conference on Empirical Methods in Natural Language Processing ({EMNLP})",
-    month = oct,
-    year = "2014",
-    address = "Doha, Qatar",
-    publisher = "Association for Computational Linguistics",
-    url = "https://aclanthology.org/D14-1181/",
-    doi = "10.3115/v1/D14-1181",
-    pages = "1746--1751"
-}
-
 %%%%%%%%%%%%%%%%%%%% BIM3 %%%%%%%%%%%%%%%%%%%%
 @article{zheng2025multi,
   title={Multi-resolution Patch-based Fourier Graph Spectral Network for spatiotemporal time series forecasting},
@@ -340,36 +321,29 @@ series = {CIKM '21}
 }
 
 @article{1990STL,
-  title={STL: A seasonal-trend decomposition procedure based on Loess},
-  author={ Cleveland, R. B.  and  Cleveland, W. S. },
-  journal={Journal of official statistics},
+  author={Cleveland, R. B. and Cleveland, W. S. and McRae, J. E. and Terpenning, I.},
+  title={STL: A Seasonal-Trend Decomposition Procedure Based on Loess},
+  journal={Journal of Official Statistics},
   volume={6},
   number={1},
   year={1990},
 }
 
-@inproceedings{vae,
-title={Auto-Encoding Variational Bayes},
-author={Diederik P. Kingma and Max Welling},
-booktitle={International Conference on Learning Representations},
-year={2014}
-}
-
 @inproceedings{moe,
-title={ Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer},
-author={Noam Shazeer and *Azalia Mirhoseini and *Krzysztof Maziarz and Andy Davis and Quoc Le and Geoffrey Hinton and Jeff Dean},
-booktitle={International Conference on Learning Representations},
-year={2017}
+  title={ Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer},
+  author={Noam Shazeer and Azalia Mirhoseini and Krzysztof Maziarz and Andy Davis and Quoc Le and Geoffrey Hinton and Jeff Dean},
+  booktitle={International Conference on Learning Representations},
+  year={2017}
 }
 
-@article{micn,
+@inproceedings{micn,
   title={MICN: Multi-scale Local and Global Context Modeling for Long-term Series Forecasting},
   author={Huiqiang Wang and Jian Peng and Feihu Huang and Jince Wang and Junhui Chen and Yifei Xiao},
-  journal={International Conference on Learning Representations},
+  booktitle={International Conference on Learning Representations},
   year={2023}
 }
 
-@inbook{cnn_related1,
+@inproceedings{cnn_related1,
 author = {Sen, Rajat and Yu, Hsiang-Fu and Dhillon, Inderjit},
 title = {Think globally, act locally: a deep neural network approach to high-dimensional time series forecasting},
 year = {2019},
@@ -380,17 +354,17 @@ articleno = {435},
 numpages = {10}
 }
 
-@inproceedings{deepar,
-author = {Rangapuram, Syama Sundar and Seeger, Matthias and Gasthaus, Jan and Stella, Lorenzo and Wang, Yuyang and Januschowski, Tim},
-title = {Deep state space models for time series forecasting},
-year = {2018},
-publisher = {Curran Associates Inc.},
-address = {Red Hook, NY, USA},
-booktitle = {Advances in Neural Information Processing Systems},
-pages = {7796–7805},
-numpages = {10},
-location = {Montr\'{e}al, Canada},
-series = {NIPS'18}
+@article{deepar,
+title = {DeepAR: Probabilistic forecasting with autoregressive recurrent networks},
+journal = {International Journal of Forecasting},
+volume = {36},
+number = {3},
+pages = {1181-1191},
+year = {2020},
+issn = {0169-2070},
+doi = {https://doi.org/10.1016/j.ijforecast.2019.07.001},
+url = {https://www.sciencedirect.com/science/article/pii/S0169207019301888},
+author = {David Salinas and Valentin Flunkert and Jan Gasthaus and Tim Januschowski},
 }
 
 @inproceedings{onefitsall,
@@ -525,11 +499,12 @@ year={2023},
   year={2024}
 }
 
-@article{dlinear,
+@inproceedings{dlinear,
+  author={Zeng, Ailing and Chen, Muxi and Zhang, Lei and Xu, Qiang},
   title={Are Transformers Effective for Time Series Forecasting?},
-  author={Ailing Zeng and Muxi Chen and Lei Zhang and Qiang Xu},
-  journal={arXiv preprint arXiv:2205.13504},
-  year={2022}
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  year={2023},
+  pages={11121-11128}
 }
 
 @inproceedings{hinton_2004_maha,
@@ -865,18 +840,6 @@ month = jan,
 articleno = {38},
 numpages = {22},
 keywords = {Graph Convolutional Networks, spatio-temporal data, Traffic prediction}
-}
-
-@inproceedings{hierarchy-forecast,
-author = {Cini, Andrea and Mandic, Danilo and Alippi, Cesare},
-title = {Graph-based time series clustering for end-to-end hierarchical forecasting},
-year = {2024},
-publisher = {JMLR.org},
-booktitle = {Proceedings of the International Conference on Machine Learning},
-articleno = {359},
-numpages = {15},
-location = {Vienna, Austria},
-series = {ICML'24}
 }
 
 @inproceedings{msgnet,

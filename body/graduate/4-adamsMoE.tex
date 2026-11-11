@@ -58,18 +58,18 @@ e_{tid,t}=\mathrm{Embed}_{tid}\!\left(x_{tid,t}\right),
 \begin{equation}
 e_{diw,t}=\mathrm{Embed}_{diw}\!\left(x_{diw,t}\right),
 \end{equation}
-其中 $e_{tid,t},e_{diw,t}\in\mathbb{R}^{E}$，两个嵌入表的类别数在实现中分别取 $288$ 和 $7$。将第 $n$ 个节点在时刻 $t$ 的观测 $x_{n,t}$ 与两个时刻嵌入拼接，并通过线性层映射到隐空间：
+其中 $e_{tid,t},e_{diw,t}\in\mathbb{R}^{d}$，两个嵌入表的类别数在实现中分别取 $288$ 和 $7$。将第 $n$ 个节点在时刻 $t$ 的观测 $x_{n,t}$ 与两个时刻嵌入拼接，并通过线性层映射到隐空间：
 \begin{equation}
-x_{enc}^{n,t}=\mathrm{Linear}\!\left(\left[x_{n,t};e_{tid,t};e_{diw,t}\right]\right)\in\mathbb{R}^{E},
+x_{enc}^{n,t}=\mathrm{Linear}\!\left(\left[x_{n,t};e_{tid,t};e_{diw,t}\right]\right)\in\mathbb{R}^{d},
 \end{equation}
-随后沿时间维聚合，得到编码后的节点嵌入 $X_{enc}\in\mathbb{R}^{N\times E}$，其中 $T$ 为历史时间步数，$N$ 为传感器数，$E$ 为隐层维度。记最后一个时间步的时刻嵌入为 $E_{tid},E_{diw}\in\mathbb{R}^{N\times E}$，$E_{tid},E_{diw}$ 在后续融合模块中作为时刻嵌入再次使用。
+随后沿时间维聚合，时刻嵌入按节点广播，得到编码后的节点嵌入 $X_{enc}\in\mathbb{R}^{N\times d}$，其中 $T$ 为历史时间步数，$N$ 为传感器数，$d$ 为隐层维度。记最后一个时间步的时刻嵌入为 $E_{tid},E_{diw}\in\mathbb{R}^{N\times d}$，$E_{tid},E_{diw}$ 在后续融合模块中作为时刻嵌入再次使用。
 
 \subsection{数据驱动的空间多尺度图构造}
 \label{sec:ch4_smsmoe}
 
 为了捕捉交通数据的空间异质性并支持尺度自适应建模，本章提出空间多尺度混合专家模块。该模块由三部分组成：图池化模块反复对原始交通图进行下采样，构造多个空间尺度上的子图；每个尺度对应一个尺度专家，用于提取该尺度下的空间特征；尺度自适应融合模块将这些特征在原始节点空间中合并。其中，融合模块首先通过散布对齐将各尺度特征映射回原始节点，再通过输入自适应尺度门控根据当前输入对各尺度重新加权。整体上，该模块以数据驱动方式发现多尺度空间模式，并在不同尺度之间进行动态融合。
 
-\noindent\textbf{子图构造\ \ } 编码完成后，得到原始图节点嵌入 $X_{enc}^0\in\mathbb{R}^{N\times E}$ 和原始图 $\mathcal{G}_0$。为构造 $S$ 个空间尺度上的子图，使用包含 $S$ 个池化层的图池化模块。对第 $i$ 个池化层，轻量图卷积为原始图 $\mathcal{G}_0$ 中的每个节点生成得分~\cite{sagpool}，并选择得分最高的 $\lfloor N/F^{i}\rfloor$ 个节点构造子图 $\mathcal{G}_i$，其中 $F$ 为尺度缩放因子，$N_i=\lfloor N/F^{i}\rfloor$。为保留结构信息，$\mathcal{G}_i$ 直接从原始图构造，而不是从中间池化图构造：
+\noindent\textbf{子图构造\ \ } 编码完成后，得到原始图节点嵌入 $X_{enc}^0\in\mathbb{R}^{N\times d}$ 和原始图 $\mathcal{G}_0$。为构造 $S$ 个空间尺度上的子图，使用包含 $S$ 个池化层的图池化模块。对第 $i$ 个池化层，轻量图卷积为原始图 $\mathcal{G}_0$ 中的每个节点生成得分~\cite{sagpool}，并选择得分最高的 $\lfloor N/F^{i}\rfloor$ 个节点构造子图 $\mathcal{G}_i$，其中 $F$ 为尺度缩放因子，$N_i=\lfloor N/F^{i}\rfloor$。为保留结构信息，$\mathcal{G}_i$ 直接从原始图构造，而不是从中间池化图构造：
 \begin{equation}
 scores_i=\mathrm{GCN}\!\left(X_{enc}^0,\mathcal{A}\right),
 \end{equation}
@@ -82,14 +82,14 @@ X_{enc}^i=\left(\mathcal{A}_{norm}X_{enc}^0\right)_{\mathrm{idx}_i},
 \begin{equation}
 \mathcal{A}_i=\mathcal{A}_{\mathrm{idx}_i,\mathrm{idx}_i},
 \end{equation}
-其中 $X_{enc}^i\in\mathbb{R}^{N_i\times E}$ 为池化后的节点嵌入，$\mathcal{A}_i\in\mathbb{R}^{N_i\times N_i}$ 为子图邻接矩阵，$\mathrm{idx}_i$ 记录保留节点在原始图中的索引。给定 $F$，该过程得到 $S=\lfloor\log_F N\rfloor$ 个子图。图池化流程如算法~\ref{alg:ch4_graph_pooling} 所示。
+其中 $X_{enc}^i\in\mathbb{R}^{N_i\times d}$ 为池化后的节点嵌入，$\mathcal{A}_i\in\mathbb{R}^{N_i\times N_i}$ 为子图邻接矩阵，$\mathrm{idx}_i$ 记录保留节点在原始图中的索引。给定 $F$，该过程得到 $S=\lfloor\log_F N\rfloor$ 个子图。图池化流程如算法~\ref{alg:ch4_graph_pooling} 所示。
 
 \begin{algorithm}[t!]
-\caption{图池化构造第 $S_i$ 个尺度子图}
+\caption{图池化构造第 $i$ 个尺度子图 $S_i$}
 \label{alg:ch4_graph_pooling}
 \begin{algorithmic}[1]
-\REQUIRE 节点嵌入 $X_{enc}\in\mathbb{R}^{N\times E}$，邻接矩阵 $\mathcal{A}\in\mathbb{R}^{N\times N}$，尺度因子 $F$，池化层索引 $i$
-\ENSURE 池化节点嵌入 $X_{enc}^i\in\mathbb{R}^{N_i\times E}$，池化邻接矩阵 $\mathcal{A}_i\in\mathbb{R}^{N_i\times N_i}$，保留节点索引 $\mathrm{idx}_i$
+\REQUIRE 节点嵌入 $X_{enc}\in\mathbb{R}^{N\times d}$，邻接矩阵 $\mathcal{A}\in\mathbb{R}^{N\times N}$，尺度因子 $F$，池化层索引 $i$
+\ENSURE 池化节点嵌入 $X_{enc}^i\in\mathbb{R}^{N_i\times d}$，池化邻接矩阵 $\mathcal{A}_i\in\mathbb{R}^{N_i\times N_i}$，保留节点索引 $\mathrm{idx}_i$
 \STATE $N_i\leftarrow\lfloor N/F^{i}\rfloor$
 \STATE 构造单位矩阵 $\mathcal{I}\in\mathbb{R}^{N\times N}$
 \STATE $\tilde{\mathcal{A}}\leftarrow\mathcal{A}+\mathcal{I}$
@@ -139,7 +139,7 @@ X_{enc}^i=\left(\mathcal{A}_{norm}X_{enc}^0\right)_{\mathrm{idx}_i},
 
 \textbf{输入自适应尺度门控。} 为实现自适应多尺度空间融合，使用依赖输入的门控机制控制不同尺度特征的组合。首先对所有节点取平均，得到当前样本的上下文向量：
 \begin{equation}
-c=\frac{1}{N}\sum_{n=1}^{N}X_{enc}^0[n]\in\mathbb{R}^{E},
+c=\frac{1}{N}\sum_{n=1}^{N}X_{enc}^0[n]\in\mathbb{R}^{d},
 \end{equation}
 然后使用轻量门控网络和 Softmax 生成各尺度权重：
 \begin{equation}
@@ -157,16 +157,16 @@ g=\mathrm{Softmax}\!\left(W_2\mathrm{ReLU}\!\left(W_1c+b_1\right)+b_2\right),
 \end{equation}
 其中 $W_i\in\mathbb{R}^{d_m\times d_m}$ 为可学习参数。通过该递归路径，粗尺度的宏观信息被逐步投影并注入细尺度。最后，将门控尺度特征与自顶向下混合特征相加并投影回编码器隐空间：
 \begin{equation}
-X_{SMS}=W_O\left(\sum_{i=0}^{S}g_i\tilde{X}_s^i+h^0\right)\in\mathbb{R}^{N\times E},
+X_{SMS}=W_O\left(\sum_{i=0}^{S}g_i\tilde{X}_s^i+h^0\right)\in\mathbb{R}^{N\times d},
 \end{equation}
-其中 $W_O\in\mathbb{R}^{E\times d_m}$ 为可学习参数。尺度自适应融合流程如算法~\ref{alg:ch4_scale_fusion} 所示。
+其中 $W_O\in\mathbb{R}^{d\times d_m}$ 为可学习参数。尺度自适应融合流程如算法~\ref{alg:ch4_scale_fusion} 所示。
 
 \begin{algorithm}[t!]
 \caption{带散布对齐的尺度自适应融合}
 \label{alg:ch4_scale_fusion}
 \begin{algorithmic}[1]
 \REQUIRE 多尺度特征 $\mathcal{X}_s=\{X_s^i\mid i=0,\ldots,S\}$，池化索引 $\{\mathrm{idx}_i\mid i=1,\ldots,S\}$，编码输入 $X_{enc}^0$
-\ENSURE 空间多尺度特征 $X_{SMS}\in\mathbb{R}^{N\times E}$
+\ENSURE 空间多尺度特征 $X_{SMS}\in\mathbb{R}^{N\times d}$
 \STATE $\tilde{X}_s^0\leftarrow X_s^0$
 \FOR{$i=1$ to $S$}
     \STATE $\tilde{X}_s^i\leftarrow\mathbf{0}\in\mathbb{R}^{N\times d_m}$
@@ -188,7 +188,7 @@ X_{SMS}=W_O\left(\sum_{i=0}^{S}g_i\tilde{X}_s^i+h^0\right)\in\mathbb{R}^{N\times
 
 为联合建模静态空间结构和动态时间变化，本章设计静态—动态双混合专家模块，包含两个轻量、稀疏激活的混合专家。静态图混合专家使用路由器将交通数据分配到不同的静态图专家，基于图卷积的专家用于捕捉静态图中的显式拓扑结构；动态图混合专家则并行地使用节点级全注意力动态图专家，挖掘动态图中的隐式时间依赖。两类组件共同实现静态和动态时空特征的统一建模。
 
-\noindent\textbf{静态图混合专家\ \ } 为根据时空特征将数据路由到不同专家，定义可学习节点嵌入 $E_n\in\mathbb{R}^{N\times E}$，并将其与 $X_{enc}$ 拼接，得到路由输入 $X_{sg}$。该设计注入静态空间信息以辅助专家选择。门控以整段时间内整张图的时空特征为输入，聚合出每个专家的路由得分，并在批量维度上对每个样本分别进行 Top-$k$ 选择。路由器使用全连接层实现：
+\noindent\textbf{静态图混合专家\ \ } 为根据时空特征将数据路由到不同专家，定义可学习节点嵌入 $E_n\in\mathbb{R}^{N\times d}$，并将其与 $X_{enc}$ 拼接，得到路由输入 $X_{sg}$。该设计注入静态空间信息以辅助专家选择。门控以整段时间内整张图的时空特征为输入，聚合出每个专家的路由得分，并在批量维度上对每个样本分别进行 Top-$k$ 选择。路由器使用全连接层实现：
 \begin{equation}
     X_g=W_g^l\left(\mathrm{ReLU}\!\left(X_{sg}W_g^0\right)W_g^1\right),
 \end{equation}
@@ -505,7 +505,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     \resizebox{\linewidth}{!}{
     \begin{tabular}{c|ccc|ccc|ccc}
          \toprule
-         \textbf{Strategy} & \multicolumn{3}{c|}{\textbf{Top-Down}} & \multicolumn{3}{c|}{\textbf{Bottom-Up}} & \multicolumn{3}{c}{\textbf{Average}}  \\
+         \textbf{混合策略} & \multicolumn{3}{c|}{\textbf{Top-Down}} & \multicolumn{3}{c|}{\textbf{Bottom-Up}} & \multicolumn{3}{c}{\textbf{Average}}  \\
          Metric & mae & mape (\%) & rmse & mae & mape (\%) & rmse & mae & mape (\%) & rmse \\
          \midrule
          
@@ -533,7 +533,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     \resizebox{\linewidth}{!}{
         \begin{tabular}{cc|ccccccc}
              \toprule
-             \multicolumn{2}{c|}{\textbf{Scale Factor}} & $S=0$ & $F=2$ & \textbf{$F=4$} & $F=6$ & $F=8$ & $F=16$ & $F=64$ \\
+             \multicolumn{2}{c|}{\textbf{尺度因子}} & $S=0$ & $F=2$ & $F=4$ & $F=6$ & $F=8$ & $F=16$ & $F=64$ \\
              \midrule
              \multirow{3}{*}{METR-LA} 
              & mae & 3.070 & 3.072 & 3.059 & \textbf{3.055} & 3.059 & 3.060 & 3.062 \\
@@ -584,7 +584,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
     % \resizebox{\linewidth}{!}{
         \begin{tabular}{cc|ccccc}
              \toprule
-             \multicolumn{2}{c|}{\textbf{Expert Number}} & $E=1$ & $E=2$ & $E=3$ & $E=4$ & $E=5$ \\
+             \multicolumn{2}{c|}{\textbf{专家数量}} & $E=1$ & $E=2$ & $E=3$ & $E=4$ & $E=5$ \\
              \midrule
              \multirow{3}{*}{METR-LA} 
              & mae & 3.270 & 3.203 & 3.097 & 3.059 & \textbf{3.054} \\
@@ -733,7 +733,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
   % \vspace{-1em}
 \end{table}
 
-\noindent\textbf{不同多尺度混合策略的对比\ \ } 为了融合尺度专家提取的多尺度空间特征，本章采用自顶向下混合策略。其直觉是，粗尺度表示捕捉更宏观的全局交通模式，可以作为细化细尺度表示的先验。因此，将信息从粗尺度传播到细尺度，有助于在保留全局上下文的同时增强局部细节。为验证该设计的合理性，本章节将自顶向下的特征混合方式，替换为自底向上的混合和简单平均两种特征混合方式。自底向上混合从细尺度向粗尺度聚合特征，可能在全局上下文形成前压缩或平滑细粒度信号；简单平均则对所有尺度一视同仁，忽略尺度间的层次关系。表~\ref{tab:mixing-strategy} 展示了选用不同混合策略的模型表现，表中数据为所有时间步结果取平均，最优结果加粗。从实验结果可以观察到，自底向上和平均策略均导致性能下降，说明自顶向下混合更适合多尺度空间特征融合。
+\noindent\textbf{不同多尺度混合策略的对比\ \ } 为了融合尺度专家提取的多尺度空间特征，本章采用自顶向下混合策略。其直觉是，粗尺度表示捕捉更宏观的全局交通模式，可以作为细化细尺度表示的先验。因此，将信息从粗尺度传播到细尺度，有助于在保留全局上下文的同时增强局部细节。为验证该设计的合理性，本章节将自顶向下的特征混合方式替换为自底向上的混合和简单平均两种特征混合方式。自底向上混合从细尺度向粗尺度聚合特征，可能在全局上下文形成前压缩或平滑细粒度信号；简单平均则对所有尺度一视同仁，忽略尺度间的层次关系。表~\ref{tab:mixing-strategy} 展示了选用不同混合策略的模型表现，表中数据为所有时间步结果取平均，最优结果加粗。从实验结果可以观察到，自底向上和平均策略均导致性能下降，说明自顶向下混合更适合多尺度空间特征融合。
 
 \noindent\textbf{尺度因子的影响\ \ } 本章通过 $S=\lfloor \log_F(N)\rfloor$ 次下采样构造子图，$F$ 为尺度因子。表~\ref{tab:parasen-scalingFactor} 给出不同 $F$ 下，本章方法在所有时间步取平均的预测精度；最优结果加粗。当 $S=0$，即多尺度建模退化为仅在原始图上进行单尺度特征提取时，所有数据集上的性能均最弱，说明空间多尺度建模对处理空间非平稳性有效。当 $F\ge 2$ 时，模型一致优于单尺度的表现，最佳结果通常出现在 $F=4$ 或 $F=6$。可能的原因是，$F=2$ 时相邻子图之间的区分度不足，尺度特征过于相似；适中 $F$ 能产生区分更明显的尺度，包括原始尺度，从而有利于多尺度特征提取。当 $F=64$ 时，模型对所有数据集只进行一次下采样，退化为两尺度自适应提取器，虽然仍优于单尺度变体，但整体不如适中尺度因子。
 
@@ -830,7 +830,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 \subsubsection{空间尺度权重的可视化}
 
-为了进一步分析空间多尺度混合专家模块在推理时如何分配尺度权重，本节将训练后的模型，在测试集上高峰期和非高峰期时段的平均尺度权重进行了可视化。本节及后续章节中，将每日 $7{:}00$--$10{:}00$ 和 $16{:}00$--$19{:}00$ 视为高峰期时段，其余时间视为非高峰期时段。
+为了进一步分析空间多尺度混合专家模块在推理时如何分配尺度权重，本节将训练后的模型，在测试集上高峰期和非高峰期时段的平均尺度权重进行了可视化。本节及后续小节中，将每日 $7{:}00$--$10{:}00$ 和 $16{:}00$--$19{:}00$ 视为高峰期时段，其余时间视为非高峰期时段。
 
 如图~\ref{fig:scale-weight} 所示，在非高峰期时段，三个数据集的原始尺度均持续获得主导权重。这说明当交通状态相对稳定时，空间多尺度混合专家模块主要依赖原始尺度图，因为它保留了更丰富的全局信息。相比之下，在高峰期时段，原始尺度的权重明显下降，不再占据主导地位，而其他尺度的权重上升；在 PEMS-BAY 和 PEMS04 上，这些权重还随尺度增大而增加。这一变化说明，在部分节点交通流量较大的高峰期状态下，模型会将更多权重分配给较大尺度，以突出显著的局部交通模式。上述结果表明，空间多尺度混合专家模块能够根据高峰期和非高峰期交通条件动态重新分配尺度权重，从而学习时间自适应的空间多尺度表示。
 
@@ -874,7 +874,7 @@ Y_\mathrm{pred}=\mathrm{FC}_{\mathrm{predict}}\!\left(H_M\right).
 
 进一步地，本节可视化高峰期与非高峰期节点选择频率之间的差异。如图~\ref{fig:nodeSelect-diffMap} 左侧所示，在高峰期时段，被选择节点主要沿主干道分布，集中在交通流量较大的路段；而在非高峰期时段，被选择节点更倾向集中于主干道交叉口附近。这说明模型在高峰期更关注路段级交通动态，而在非高峰期则转向对区域级整体交通条件的表示。
 
-在图~\ref{fig:nodeSelect-diffMap} 右侧子图为高峰期减非高峰期节点频率差异的散点图。散点图的横纵坐标分别比较了归一化后的高峰期和非高峰期节点选择频率。对角线将高峰期减非高峰期选择频率的正差区域与负差区域分开：左上侧为正差，右下侧为负差。大多数点位于右下区域，说明高峰期选择集中在少数高流量路段，而非高峰期选择分布在更广泛的区域级节点上。该结果进一步说明空间多尺度混合专家模块能够根据交通状态改变节点选择范围，从而形成具有时间自适应性的空间多尺度表示。
+图~\ref{fig:nodeSelect-diffMap} 右侧子图为高峰期减非高峰期节点频率差异的散点图。散点图的横纵坐标分别比较了归一化后的高峰期和非高峰期节点选择频率。对角线将高峰期减非高峰期选择频率的正差区域与负差区域分开：左上侧为正差，右下侧为负差。大多数点位于右下区域，说明高峰期选择集中在少数高流量路段，而非高峰期选择分布在更广泛的区域级节点上。该结果进一步说明空间多尺度混合专家模块能够根据交通状态改变节点选择范围，从而形成具有时间自适应性的空间多尺度表示。
 
 
 \section{本章小结}
